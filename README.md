@@ -1,6 +1,6 @@
 # VIDEO DeDup
 
-Find duplicate videos by content
+Find duplicate videos by content.
 Parse a video directory to create one image every 60sec with ffmpeg, then identify duplicate images with findimagedupes and ease the result analysis.
 
 Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own licences.
