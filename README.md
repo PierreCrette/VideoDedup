@@ -1,4 +1,4 @@
-VIDEO DeDup
+# VIDEO DeDup
 
 Find duplicate videos by content
 Parse a video directory to create one image every 60sec with ffmpeg, then identify duplicate images with findimagedupes and ease the result analysis.
@@ -7,7 +7,7 @@ Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own l
 
 
 
-0. Prerequisites
+# 0. Prerequisites
 
 ffmpeg must be installed on your computer.
 findimagedupes must be installed on your computer.
@@ -16,7 +16,7 @@ They are both included in Ubuntu distro (sudo apt-get install ffmpeg findimagedu
 
 
 
-1. videodedup.sh
+# 1. videodedup.sh
 
 Main program. You have to modify it to set your own options
 
@@ -29,7 +29,7 @@ Due to the duraction of each steps (1 To takes about 1 day) you are encouraged t
 
 
 
-2. 1parse.py
+# 2. 1parse.py
 
 Python program that will scan your video files and create for each file a folder image. In this folder image python calls ffmpeg to create 1 jpeg image every n seconds.
 1parse.py foldersrc folderimg [-v] [-i] [-f]
@@ -41,7 +41,7 @@ folderimg = where your images will be created. MUST include the /db/ path (see a
 
 
 
-3. findimagedupes
+# 3. findimagedupes
 
 See man page. You can reuse parameters in videodedup.sh. Only change folders.
 
@@ -49,13 +49,13 @@ template.sh is the commands to use with each set found by findimagedupes in orde
 
 
 
-4. 2analyse.py
+# 4. 2analyse.py
 
 Python program who scan duplicates, remove some false duplicates (same image 2 times in the same video file), group duplicates (for duplicate 1 hour video findimagedupes will found 60 duplicates), and copy duplicates in the /img/ana-not-saved analyse folder.
 
 
 
-HOW TO
+# HOW TO
 
 How to setup: read above description to understand then modify videodedup.sh to set your own folders.
 
@@ -81,7 +81,7 @@ Just move your certidied duplicates to a /video/duplicates folder. Then run any 
 
 
 
-UNDERSTAND
+# UNDERSTAND
 
 The 1parse have a recover procedure based on .txt files stored in /db/folder/video/ folders. It will redo incomplete videos or changed frequency ones.
 If you manualy (or with rmimg.sh) remove some images they will be discard from following findimagedupes.
