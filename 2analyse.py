@@ -35,6 +35,23 @@ def SlashToSpace(fullname, start):
 #main
 print('************************************************************************************')
 #read arguments and conform them
+print('Video DeDup : find video duplicates')
+print('Copyright (C) 2018  Pierre Crette')
+print('')
+print('This program is free software: you can redistribute it and/or modify')
+print('it under the terms of the GNU General Public License as published by')
+print('the Free Software Foundation, either version 3 of the License, or')
+print('(at your option) any later version.')
+print('')
+print('This program is distributed in the hope that it will be useful,')
+print('but WITHOUT ANY WARRANTY; without even the implied warranty of')
+print('MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the')
+print('GNU General Public License for more details.')
+print('')
+print('You should have received a copy of the GNU General Public License')
+print('along with this program.  If not, see <http://www.gnu.org/licenses/>.')
+print('')
+	
 if debug>0: print(sys.argv)
 if len(sys.argv)<3:
 	print('SYNTAX ERROR: 2analyse foldersrc folderimg findimagedupesresult [n]')
