@@ -63,6 +63,7 @@ def OneFile(folderv,folderi,file):
 				print('   --- Exist but run.flag so remove image folder')
 				shutil.rmtree(folderi2)
 			else:
+				print('   --- run.flag for ' + folderv + file + ' Skip due to parallel mode ')
 				fait = True
 		else:
 			line = 'fps=1/60'			
