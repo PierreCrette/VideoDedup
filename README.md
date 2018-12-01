@@ -59,7 +59,7 @@ Python program who scan duplicates, remove some false duplicates (same image 2 t
 
 How to setup: read above description to understand then modify videodedup.sh to set your own folders.
 
-The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can call it twice in parallel on 2 different subfolders to use 100% cpu.
+The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can call it twice in parallel with -p to use 100% cpu or better on multiple computers connected to a NAS.
 
 Limit the resultset then wider your search. 
 --threshold=98 in findimagedupes is better then default 90% for 1st runs
