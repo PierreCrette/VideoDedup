@@ -10,6 +10,7 @@ import hashlib
 import sqlite3
 #import psycopg2
 from pprint import pprint
+import time
 
 #Declarations
 debug = 0
@@ -17,8 +18,11 @@ level = 0
 creeimages = 0
 findimagedupes = 0
 fps = 'fps=1/60'
+parallel = 0
 foldervideo= '.'
 folderimg = '.'
+txtgreen = '\033[0;32m'
+txtnocolor = '\033[0m'
 
 def BoucleSupp(radical=''):
 	if radical != "":
@@ -55,8 +59,11 @@ def OneFile(folderv,folderi,file):
 	fait = False
 	if os.path.exists(folderi2):
 		if os.path.exists(folderi2 + '/run.flag'):
-			print('   --- Exist but run.flag so remove image folder')
-			shutil.rmtree(folderi2)
+			if parallel == 0:
+				print('   --- Exist but run.flag so remove image folder')
+				shutil.rmtree(folderi2)
+			else:
+				fait = True
 		else:
 			line = 'fps=1/60'			
 			if os.path.exists(folderi2 + '/param.txt'):
@@ -87,10 +94,14 @@ def OneFile(folderv,folderi,file):
 		f.close
 				
 		#Call ffmpeg
-		print (s)
+		print (txtgreen + s + txtnocolor)
+		t = time.time()
 		p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True)
 		(output, err) = p.communicate()  
 		p_status = p.wait()
+		dur = time.time() - t
+		siz = os.path.getsize(fvideo)/1048576
+		print(time.asctime(time.localtime(time.time())) + ' - Duration : ' + str(dur) + ' seconds for ' + str(siz) + ' Mb ' + txtgreen + '@ ' + str(siz/dur*0.0864) + ' Tb/day' + txtnocolor)
 		
 		os.remove(folderi2 + '/run.flag')
 
@@ -118,6 +129,7 @@ def BoucleFichiers(folderv='.',folderi='.',level=1):
 			elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT'):
 				print (spacer + '  Not match : ' + folderv + file)
 	else:
+		print('folderv = ' + folderv)
 		OneFile(os.path.dirname(folderv)+"/",os.path.basename(folderv))
 	if debug>1: 
 		spacer = ''
@@ -129,11 +141,12 @@ def BoucleFichiers(folderv='.',folderi='.',level=1):
 #Step0: Read arguments and initialize variables
 if debug>3: print(sys.argv)
 if len(sys.argv)<2:
-	print('SYNTAX ERROR: 1parse folderSRC folderimg [-v] [-i] [-d] [-f]')
+	print('SYNTAX ERROR: 1parse folderSRC folderimg [-v] [-i] [-d] [-fnn] [-p]')
 	print('-v   Verbose mode')
 	print('-i   Create images files in folderimg')
 	print('-d   Find duplicates')
 	print('-f60   fps: take 1 picture each n seconds. Default fps=1/60 ie 1 picture per minute')
+	print('-p   Parallel. Will not process if run flag is set')
 	halt
 else:
 	foldervideo = os.path.normpath(sys.argv[1])
@@ -146,9 +159,11 @@ else:
 		if i[:2] == '-i': creeimages = 1
 		if i[:2] == '-d': findimagedupes = 1
 		if i[:2] == '-f': fps = "fps=1/" + i[2:]
+		if i[:2] == '-f': parallel = 1
 
 	print('************************************************************************************')
-	print('* 1parse.py ' + foldervideo + ' ' + folderimg + ' ' + fps)
+	print('* ' + txtgreen + '1parse.py ' + foldervideo + ' ' + folderimg + ' ' + fps + txtnocolor)
+	print('************************************************************************************')
 	print('Video DeDup : find video duplicates')
 	print('Copyright (C) 2018  Pierre Crette')
 	print('')
@@ -182,13 +197,13 @@ else:
 	
 	#Step 1: Delete obsolete images
 	print ('************************************************************************************')
-	print (' Step 1: Delete obsolete images')
+	print (' Step 1: Delete obsolete images for ' + foldervideo)
 	print ('************************************************************************************')
 	BoucleSupp('')	
 	
 	#Step 2: Create missing images		
 	print ('************************************************************************************')
-	print (' Step 2: Create missing images')
+	print (' Step 2: Create missing images for ' + foldervideo)
 	print ('************************************************************************************')
 	BoucleFichiers(foldervideo,folderimg,level)
 	
