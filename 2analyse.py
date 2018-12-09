@@ -13,8 +13,11 @@ from pprint import pprint
 import codecs
 
 #Declarations
-debug = 1
+debug = 0
 env = 'prd'
+txtgreen = '\033[0;32m'
+txterr = '\033[0;33m'
+txtnocolor = '\033[0m'
 
 #Give the name of a file by removing the forder reference
 def ShortName(fullname):
@@ -54,7 +57,7 @@ print('')
 	
 if debug>0: print(sys.argv)
 if len(sys.argv)<3:
-	print('SYNTAX ERROR: 2analyse foldersrc folderimg findimagedupesresult [n]')
+	print('SYNTAX ERROR: 2analyse foldersrc folderimg findimagedupesresult [-tn] [-d]')
 	halt
 else:
 	foldervideo = os.path.normpath(sys.argv[1])
@@ -67,20 +70,27 @@ else:
 		folderimg = folderimgraw + "db/"
 		folderana = folderimgraw + "ana-" + env + "-not-saved/"
 	fresultset = os.path.normpath(sys.argv[3])
-	if debug>2:
+	if not(os.path.exists(folderana)): os.mkdir(folderana, mode=0o777)
+	threshold = 1
+	for i in sys.argv[3:]:
+		if i[:2] == '-d': debug  = int( i[2:] )
+		if i[:2] == '-t': threshold = int( i[2:] )
+	if debug>0:
+		print('debug mode :' + str(debug))
+		print('  1 : verbose')
+		print('  2 : no file copy, maximum verbose when source file already used')
+		print('  3 : maximum verbose')
 		print('folderimg = ' + folderimg)
 		print('folderana = ' + folderana)
 		print('fresultset = ' + fresultset)
-	if not(os.path.exists(folderana)): os.mkdir(folderana, mode=0o777)
-	threshold = 1
-	if len(sys.argv) > 3: threshold = int(sys.argv[4])
-	if debug>0: print ('Consider double if at least ' + str(threshold) + ' images are similar in the set.')
+	print (txtgreen + 'Consider double if at least ' + str(threshold) + ' pair of images are similar in the set.' + txtnocolor)
 	
 	#Step 1: parse fresultset and create memory map
 	resultsetvideo = []
 	setvideo = []
 	setimg = []
 	setprt = []
+	setuni = []
 	
 	f = open(fresultset, 'r')
 	for line in f:
@@ -96,29 +106,40 @@ else:
 			#Close the set
 			#If the set contains at least 2 source video files
 			if len(setvideo) > 1:
-				print('*******************************************')
+				if debug>0: print('*******************************************')
 				#Seek if the set is already known
-				setvideo.sort
+				slgn = txtgreen + str(len(resultsetvideo)) + txtnocolor + ' : '
+
+				setvideo = sorted(setvideo)
 				new = -1
 				for j in range(len(resultsetvideo)):
-					if debug>1: print('1: ')
-					if debug>1: print(resultsetvideo[j][1])
-					if debug>1: print('')
 					if resultsetvideo[j][1] == setvideo: 
-						print('***** Resultset existant trouve *****')
+						print(slgn + 'Existing resultset found = ' + str(j))
 						new = j
 				if new < 0:
 					#New set of duplicates
-					resultsetvideo.append([1, setvideo, setimg, setprt])
-					if debug>0: print(setvideo)
+					for j in range(len(setvideo)):
+						for k in range(len(setuni)):
+							#print(str(setvideo[j]) + ' =? ' + str(setuni[k][0]))
+							if setvideo[j] == setuni[k][0]:
+								new = -2
+								if debug>1: print(slgn + 'Resultset not found but File ' + str(setvideo[j]) + ' found in set ' + str(setuni[k][1]))
+					if new < -1:
+						print(txterr + 'Resultset discarded to avoid double removal.' + txtnocolor)
+					else:		
+						resultsetvideo.append([1, setvideo, sorted(setimg), sorted(setprt)])
+						for j in range(len(setvideo)):
+							setuni.append([setvideo[j],len(resultsetvideo)])
+						if debug>0:
+							print(slgn + 'New ' + str(setvideo))
 				else:
 					#Update existing set
 					x = resultsetvideo[new]
-					resultsetvideo[new] = [x[0] + 1, x[1], x[2] + setimg, x[3] + setprt]
-					if debug>0: print('Avant update de set :')
-					if debug>0: print(x)
-					if debug>0: print('Apres :')
-					if debug>0: print(resultsetvideo[new])
+					resultsetvideo[new] = [x[0] + 1, x[1], sorted(x[2] + setimg), sorted(x[3] + setprt)]
+					if debug>2: print('Before update :')
+					if debug>2: print(x)
+					if debug>2: print('After :')
+					if debug>2: print(resultsetvideo[new])
 						
 		if len(line) > 5:
 			#Action on 1 image file of a set of doubles
@@ -142,34 +163,40 @@ else:
 				setvideo.append(src)
 
 	#Step 2: create Analyse folder and copy all files in it
-	for j in range(len(resultsetvideo)):
-		fld = folderana + str(j) + '/'
-		x = resultsetvideo[j]
-		if x[0] >= threshold:
-			if not(os.path.exists(fld)):
-				os.mkdir(fld, mode=0o777)
-			else:
-				shutil.rmtree(fld)
-				os.mkdir(fld, mode=0o777)
-				
-			#x[1] are Video source files
-			for d in enumerate(x[1]):
-				if debug>0:
+	if debug>1:
+		print(txtgreen + 'Debug>1: Analyse folder not created.' + txtnocolor)	
+	else:
+		for j in range(len(resultsetvideo)):
+			ok = True
+			fld = folderana + str(j) + '/'
+			x = resultsetvideo[j]
+			if x[0] >= threshold:
+				if not(os.path.exists(fld)):
+					os.mkdir(fld, mode=0o777)
+				else:
+					shutil.rmtree(fld)
+					os.mkdir(fld, mode=0o777)
+					
+				#x[1] are Video source files
+				for d in enumerate(x[1]):
 					print('Copy ' + d[1] + ' ' + fld + SlashToSpace(d[1], len(foldervideo)))
-				if os.path.exists(d[1]):
-					shutil.copy2(d[1], fld + SlashToSpace(d[1], len(foldervideo)))
-				else:
-					if debug>0: print('Not exist ' + d[1])
+					if ok and os.path.exists(d[1]):
+						shutil.copy2(d[1], fld + SlashToSpace(d[1], len(foldervideo)))
+					else:
+						ok = False
+						print(txterr + 'Not exist ' + d[1] + txtnocolor)
 
-			#x[2] are images files
-			f = open(fld + '/nb_match_' + str(x[0]) + '.txt','w')
-			for d in enumerate(x[2]):
-				f.write(d[1] + '\n')
-				if debug>0: 
-					print(fld + SlashToSpace(d[1], len(folderimg)))
-				if os.path.exists(d[1]): 
-					shutil.copy2(d[1],fld + SlashToSpace(d[1], len(folderimg)))
+				#x[2] are images files
+				if ok:
+					f = open(fld + '/nb_match_' + str(x[0]) + '.txt','w')
+					for d in enumerate(x[2]):
+						f.write(d[1] + '\n')
+						if debug>0: print(fld + SlashToSpace(d[1], len(folderimg)))
+						if os.path.exists(d[1]):
+							shutil.copy2(d[1],fld + SlashToSpace(d[1], len(folderimg)))
+						else:
+							if debug>0: print(txterr + 'Not exist ' + d[1] + txtnocolor)
+					f.close
 				else:
-					if debug>0: print('Not exist ' + d[1])
-			f.close
-
+					shutil.rmtree(fld)
+					
