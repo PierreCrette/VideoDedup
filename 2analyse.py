@@ -142,27 +142,33 @@ else:
 					if debug>2: print(resultsetvideo[new])
 						
 		if len(line) > 5:
-			#Action on 1 image file of a set of doubles
-			setimg.append(line)
-			s = '/'
-			for j in range(len(folderimg),len(line)):
-				if line[j] == '/':
-					s = s + ' '
-				else:
-					s = s + line[j]
-			setprt.append(s)
 			#Identify the source video file of this image
 			k = len(line) - 1
 			while line[k] != "/": k = k - 1
 			src = foldervideo + line[len(folderimg):k]
-			#This source video file is already in set ? Case of a still or repeted image in the movie
-			new = True
-			for d in setvideo:
-				if d == src: new = False
-			if new:
-				setvideo.append(src)
+			if os.path.exists(src): 		
+				#Action on 1 image file of a set of doubles
+				setimg.append(line)
+				s = '/'
+				for j in range(len(folderimg),len(line)):
+					if line[j] == '/':
+						s = s + ' '
+					else:
+						s = s + line[j]
+				setprt.append(s)
+				#This source video file is already in set ? Case of a still or repeted image in the movie
+				new = True
+				for d in setvideo:
+					if d == src: new = False
+				if new:
+					setvideo.append(src)
+			else:
+				print(src + txterr + ' not present' + txtnocolor)
 
 	#Step 2: create Analyse folder and copy all files in it
+	print('*******************************************')
+	print('*    STEP 2 : COPY FILES FOR ANALYSIS     *')
+	print('*******************************************')
 	if debug>1:
 		print(txtgreen + 'Debug>1: Analyse folder not created.' + txtnocolor)	
 	else:
