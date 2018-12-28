@@ -1,4 +1,4 @@
-./1parse.py /home/pierre/NAS_pierre/Video /home/pierre/NAS_pierre/nassys/img/db -i -d -f10
+./1parse.py /home/pierre/NAS_pierre/Video /home/pierre/NAS_pierre/nassys/img/db -i -f5
 
 rm result.sh
 echo '***************************************************************************************************'
