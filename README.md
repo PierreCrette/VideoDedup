@@ -83,8 +83,5 @@ Just move your certidied duplicates to a /video/duplicates folder. Then run any 
 
 # UNDERSTAND
 
-The 1parse have a recover procedure based on .txt files stored in /db/folder/video/ folders. It will redo incomplete videos or changed frequency ones.
+The 1parse have a recover procedure based on .run files /db/folder/video.run. It will redo incomplete videos or changed in fps parameter.
 If you manualy (or with rmimg.sh) remove some images they will be discard from following findimagedupes.
-
-
-
