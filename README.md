@@ -62,8 +62,8 @@ How to setup: read above description to understand then modify videodedup.sh to 
 The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can call it twice in parallel with -p to use 100% cpu or better on multiple computers connected to a NAS.
 
 Limit the resultset then wider your search. 
---threshold=98 in findimagedupes is better then default 90% for 1st runs
-default -f60 is enough in most cases and 4 times faster then -f15 (1 image every 15 seconds)
+--threshold=98 in findimagedupes is better than default 90% for 1st runs
+default -f60 is enough in some cases and 4 times faster then -f15 (1 image every 15 seconds). findimagedupes time increase with square of fps. ie -f15 will take 16 times (4x4) than -f60.
 2 parameter on 2analyse.py tells to discard duplicates with less than 2 similar images
 
 To go deeper you can modify python programs :
