@@ -64,7 +64,7 @@ The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can cal
 Limit the resultset then wider your search. 
 --threshold=98 in findimagedupes is better than default 90% for 1st runs
 default -f60 is enough in some cases and 4 times faster then -f15 (1 image every 15 seconds). findimagedupes time increase with square of fps. ie -f15 will take 16 times (4x4) than -f60.
-2 parameter on 2analyse.py tells to discard duplicates with less than 2 similar images
+Numeric parameter (2 in provided script) on 2analyse.py tells to discard duplicates with less than 2 similar images. Increase it to dicrease false positives.
 
 To go deeper you can modify python programs :
 1parse.py contains the list of video formats to select. You can add more.
