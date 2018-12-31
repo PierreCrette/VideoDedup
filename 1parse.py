@@ -21,10 +21,11 @@ fps = 'fps=1/60'
 parallel = 0
 clean = 0
 pid = str(time.time())
-logfile = '1parse.' + pid + '.log'
+logfile = 'log/1parse.' + pid + '.log'
 foldervideo= '.'
 folderimg = '.'
 txtgreen = '\033[0;32m'
+txtred = '\033[0;31m'
 txtnocolor = '\033[0m'
 
 #log messages to log file and to screen
@@ -74,7 +75,7 @@ def BoucleCount(folderv='.', folderi='.', level=1):
 				or (ext.upper() == '.WMV') or (ext.upper() == '.ASF') or (ext.upper() == '.FLV') \
 				or (ext.upper() == '.RM') or (ext.upper() == '.OGM') or (ext.upper() == '.M2TS') or (ext.upper() == '.RMVB'):
 				cpttodo = cpttodo + 1
-			elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT'):
+			elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT' or ext.upper() == '.TXT~'):
 				log (spacer + '  Not match : ' + folderv + file, 2)
 	if debug>0: 
 		spacer = ''
@@ -120,13 +121,15 @@ def OneFile(folderv, folderi, file):
 	#Cleanup based on startover mechanism
 	if (clean == 1):
 		if os.path.exists(folderi2 + '.run'):
-			log('CLEAN due to lock: ' + folderi2, 0)
+			log(txtgreen + 'CLEAN due to lock: ' + folderi2 + txtnocolor, 0)
+			cptdone = cptdone - 1
 			os.remove(folderi2 + '.run')
 			if os.path.exists(folderi2):
 				shutil.rmtree(folderi2)
 		if todo:
 			if os.path.exists(folderi2):
-				log('CLEAN due to parameters: ' + folderi2, 0)
+				log(txtgreen + 'CLEAN due to parameters: ' + folderi2 + txtnocolor, 0)
+				cptdone = cptdone - 1
 				shutil.rmtree(folderi2)		
 
 	#Lock mechanism for startover procedure and parral mode
@@ -163,13 +166,12 @@ def OneFile(folderv, folderi, file):
 					log('   -------------------------------------------------------------------', 0)
 				
 	# Execute
+	ok = True
 	if todo :
 		if os.path.exists(folderi2):
 			shutil.rmtree(folderi2)
 		
-		if clean == 1:
-			cptdone = cptdone - 1
-		else:
+		if (clean == 0):
 			log ('Call ffmpeg with folderi = ' + folderi + ' file = ' + file, 2)
 
 			if not(os.path.exists(folderi)):
@@ -178,21 +180,32 @@ def OneFile(folderv, folderi, file):
 				os.mkdir(folderi + file + '/', mode=0o777)
 
 			#Create a file to store parameters
-			f = open(folderi2 + '/param.txt','w')
-			f.write(fps + '\n')
-			f.close
-					
-			#Call ffmpeg
-			log (txtgreen + s + txtnocolor, 0)
-			t = time.time()
-			p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True)
-			(output, err) = p.communicate()  
-			p_status = p.wait()
-			dur = time.time() - t
-			siz = os.path.getsize(fvideo)/1048576
-			log(time.asctime(time.localtime(time.time())) + ' - Duration : ' + str(round(dur,3)) + ' seconds for ' + str(round(siz,0)) + ' Mb ' + txtgreen + '@ ' + str(round(siz/dur*0.0864,2)) + ' Tb/day' + txtnocolor, 0)
+			try:
+				f = open(folderi2 + '/param.txt','w')
+				f.write(fps + '\n')
+				f.close
+						
+				#Call ffmpeg
+				log (txtgreen + s + txtnocolor, 0)
+				t = time.time()
+				p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True)
+				(output, err) = p.communicate()  
+				p_status = p.wait()
+				dur = time.time() - t
+				siz = os.path.getsize(fvideo)/1048576
+				log(time.asctime(time.localtime(time.time())) + ' - Duration : ' + str(round(dur,3)) + ' seconds for ' + str(round(siz,0)) + ' Mb ' + txtgreen + '@ ' + str(round(siz/dur*0.0864,2)) + ' Tb/day' + txtnocolor, 0)
+			
+			except:
+				log('******************************************************************', 0)
+				log(txtred + 'ERROR: Try again later ' + folderi2 + txtnocolor, 0)
+				log('******************************************************************', 0)
+				log('', 0)
+				log('', 0)
+				log('', 0)
+				ok = False
 		
-		os.remove(folderi2 + '.run')
+		if ok:
+			os.remove(folderi2 + '.run')
 
 	cptdone = cptdone + 1
 	if clean == 1:
@@ -221,7 +234,7 @@ def BoucleFichiers(folderv='.', folderi='.', level=1):
 				or (ext.upper() == '.WMV') or (ext.upper() == '.ASF') or (ext.upper() == '.FLV') \
 				or (ext.upper() == '.RM') or (ext.upper() == '.OGM') or (ext.upper() == '.M2TS') or (ext.upper() == '.RMVB'):
 				OneFile(folderv,folderi,file)
-			elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT'):
+			elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT' or ext.upper() == '.TXT~'):
 				log (spacer + '  Not match : ' + folderv + file, 0)
 	else:
 		log('folderv = ' + folderv, 0)
@@ -235,7 +248,7 @@ def BoucleFichiers(folderv='.', folderi='.', level=1):
 #main
 #Step0: Read arguments and initialize variables
 print ('')
-print (str(sys.argv))
+#print (str(sys.argv))
 if len(sys.argv)<2:
 	print('SYNTAX ERROR: 1parse folderSRC folderimg [-v] [-i] [-d] [-fnn] [-p]')
 	print('-v   Verbose mode')
@@ -243,24 +256,35 @@ if len(sys.argv)<2:
 	print('-p   Parallel. Will not process if run flag is set')
 	print('-c   Clean. Will not execute ffmpeg but will remove unfinished images: run.flag exist or incorrect fps.')
 	print('-log=file   Log file')
-	halt
+	sys.exit()
 else:
 	foldervideo = os.path.normpath(sys.argv[1])
 	if foldervideo[-1] != "/": foldervideo = foldervideo + "/"
+	if not(os.path.exists(foldervideo)):
+		print(txtred + 'Error: ' + foldervideo + ' does not exists' + txtnocolor)
+		sys.exit()
+
 	folderimg = os.path.normpath(sys.argv[2])
 	if folderimg[-1] != "/": folderimg = folderimg + "/"
+	if not(os.path.exists(folderimg)):
+		os.makedirs(folderimg)
+
+	s = '1parse.py ' + foldervideo + ' ' + folderimg
 	for i in sys.argv[3:]:
-		print (i[2:-1])
+		s = s + ' ' + i
+		#print (i[2:-1])
 		if i[:2] == '-v': debug = max(debug,1)
 		if i[:2] == '-f': fps = "fps=1/" + i[2:]
 		if i[:2] == '-p': parallel = 1
 		if i[:2] == '-c': clean = 1
 		if i[:5] == '-log=': logfile = i[5:]
 
+	if not(os.path.exists('log')):
+		os.makedirs('log')
 	flog = open(logfile,'w')
-		
+
 	log('************************************************************************************', 0)
-	log('* ' + txtgreen + '1parse.py ' + foldervideo + ' ' + folderimg + ' ' + fps + txtnocolor, 0)
+	log('* ' + txtgreen + s + txtnocolor, 0)
 	log('************************************************************************************', 0)
 	log('Video DeDup : find video duplicates', 0)
 	log('Copyright (C) 2018  Pierre Crette', 0)
@@ -278,12 +302,12 @@ else:
 	log('You should have received a copy of the GNU General Public License', 0)
 	log('along with this program.  If not, see <http://www.gnu.org/licenses/>.', 0)
 	log('', 0)
-	print('SYNTAX: 1parse folderSRC folderimg [-v] [-i] [-d] [-fnn] [-p]')
-	print('-v   Verbose mode')
-	print('-f60   fps: take 1 picture each n seconds. Default fps=1/60 ie 1 picture per minute')
-	print('-p   Parallel. Will not process if run flag is set')
-	print('-c   Clean. Will not execute ffmpeg but will remove unfinished images: run.flag exist or incorrect fps.')
-	print('-log=file   Log file')
+	log('SYNTAX: 1parse folderSRC folderimg [-v] [-i] [-d] [-fnn] [-p]', 0)
+	log('-v   Verbose mode', 0)
+	log('-f60   fps: take 1 picture each n seconds. Default fps=1/60 ie 1 picture per minute', 0)
+	log('-p   Parallel. Will not process if run flag is set', 0)
+	log('-c   Clean. Will not execute ffmpeg but will remove unfinished images: run.flag exist or incorrect fps.', 0)
+	log('-log=file   Log file', 0)
 	
 	log ('foldervideo : ' + foldervideo, 1)
 	log ('folderimg : ' + folderimg, 1)
@@ -296,14 +320,16 @@ else:
 	log ('debug = ' + str(debug), 5)
 	
 	#Step 1: Delete obsolete images
+	log ('', 0)
 	log ('************************************************************************************', 0)
-	log (' Step 1: Delete obsolete images for ' + foldervideo, 0)
+	log (' ' + txtgreen + 'Step 1: ' + txtnocolor + 'Delete obsolete images for ' + foldervideo, 0)
 	log ('************************************************************************************', 0)
 	BoucleSupp('')
 	
 	#Step 2: Create missing images		
+	log ('', 0)
 	log ('************************************************************************************', 0)
-	log (' Step 2: Create missing images for ' + foldervideo, 0)
+	log (' ' + txtgreen + 'Step 2: ' + txtnocolor + 'Create missing images for ' + foldervideo, 0)
 	log ('************************************************************************************', 0)
 	BoucleCount(foldervideo, folderimg, level)
 	BoucleFichiers(foldervideo, folderimg, level)
