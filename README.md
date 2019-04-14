@@ -147,7 +147,7 @@ This is out of the scope of this program.
 
 Just move your certified duplicates to a /video/duplicates folder. Then run any dedup program (based on exact binary) to remove BOTH duplicate : your copy in /video/duplicates and the original.
 
-##Remove false positives
+## Remove false positives
 
 Use case : same generic present in different videos.
 Copy the list of jpeg contained in /db/ana-not-saved into /db/unwanted for each set. The 3f_analyse will discard them.
