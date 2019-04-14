@@ -180,3 +180,4 @@ The 1parse and 2f_compare have a recover procedure based on .run files /db/folde
 To go deeper you can modify python programs :
 1parse.py contains the list of video formats to select. You can add more.
 Also .jpg and .txt are removed from 'not match' error. Add your owns.
+
