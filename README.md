@@ -7,6 +7,15 @@ Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own l
 
 
 
+# 0. Version 2
+
+. 1f_parse scan video source folder, replicate with ffmpeg an image folder, then for each image create a fingerprint. 1f_parse can also detect moved source file and move accordingly image folder avoiding calculation.
+. 2f_compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name.
+. 3f_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
+. To finalise you'll have to look at analysed folder to make your decisions. I'll suggest then to use a binary duplicate folder to ease real deletion
+
+
+
 # 0. Prerequisites
 
 ffmpeg must be installed on your computer.
