@@ -647,13 +647,15 @@ else:
 #            print('found : ' + MidName(resultsetvideo[i][2][j]))
 #            exit()
           except:
+#            log(resultsetvideo[i][2][j] + ' not found in cache.', 2)
             imagefile = newimage(resultsetvideo[i][2][j])
-            hdk = calcfp(imagefile,3)
-#            log('hdk = calcfp(' + imagefile + ',3)=' + str(hdk))
-            hdcacheimg.append(MidName(imagefile))
-            hdcachekey.append(hdk)
-#            print(hdkey[len(hdkey)-1])
-#            exit()
+            if imagefile != '':
+              hdk = calcfp(imagefile,3)
+  #            log('hdk = calcfp(' + imagefile + ',3)=' + str(hdk))
+              hdcacheimg.append(MidName(imagefile))
+              hdcachekey.append(hdk)
+  #            print(hdkey[len(hdkey)-1])
+  #            exit()
               
           if hdk != -1:
             hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
