@@ -108,6 +108,15 @@ def newimage(line):
       result = img[1] + line[pend:]
 #  log('newimage(' + line + ')=' + result, 2)
   return result
+
+#def newsource(line):
+#  result = ''
+#  pend = len(line) - 1
+#  while line[pend] != '/': pend = pend - 1
+#  for src in srclst:
+#    if src[0] == line[:pend]:
+#      result = src[1] + line[pend:]
+#  return result
   
 #Replace / in path to create an image file with reference to source path
 def SlashToSpace(fullname, start):
@@ -733,10 +742,11 @@ else:
                             log('d <> prev', 4)
                             f.write(d[1] + '\n')
                             log(fld + SlashToSpace(d[1], len(folderimg)), 2)
-                            if os.path.exists(d[1]):
-                                shutil.copy2(d[1],fld + SlashToSpace(d[1], len(folderimg)))
+                            imgf = newimage(d[1])
+                            if os.path.exists(imgf):
+                                shutil.copy2(imgf,fld + SlashToSpace(d[1], len(folderimg)))
                             else:
-                                log(txterr + 'Not exist ' + d[1] + txtnocolor)
+                                log(txterr + 'Not exist ' + imgf + txtnocolor)
                         prev = d[1]
                     f.close
                 else:
