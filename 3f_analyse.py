@@ -68,7 +68,7 @@ def ShortName(fullname):
       r = fullname[k+1:]
     return r
 
-def MidName(line):
+def MidName(line, source=False):
     pend = len(line) - 1
     while (pend > 0) and (line[pend] != '/'): 
       pend = pend - 1
@@ -78,7 +78,10 @@ def MidName(line):
       pbeg = pend - 1
       while (pbeg >= 0) and (line[pbeg] != '/'):
         pbeg = pbeg - 1
-      r = line[pbeg+1:]
+      if source:
+        r = line[pbeg+1:pend]
+      else:
+        r = line[pbeg+1:]
     return r 
 
 #Give the name of a file by removing the forder reference
@@ -424,29 +427,11 @@ else:
 
         if testdiff and (line[:5] == 'file='):
             line = line[5:]
-#            if (line[:17] == '/zpool/NAS_pierre'):
-#                line = '/home/pierre/NAS_pierre' + line[17:]
-#
-#            if line[:len(folderimg)] != folderimg:
-#                log(txterr)
-#                log('CONFIGURATION ERROR, Mismatch image folder :')
-#                log(folderimg + ' and resultset :')
-#                log(line)
-#                log('Either change your parameters,')
-#                log('Or if multiple computer give different names to same folder, open 2analyse.py and update string replacement @Plateform specific.')
-#                log(txtnocolor)
 
-            src = ShortName(source(line))
+            src = MidName(line, True)
 
             #Action on 1 image file of a set of doubles
             setimg.append(MidName(line))
-            s = '/'
-            for j in range(len(folderimg),len(line)):
-                if line[j] == '/':
-                    s = s + ' '
-                else:
-                    s = s + line[j]
-            setprt.append(s)
 
             #This source video file is already in set ? Case of a still or repeted image in the movie
             new = True
@@ -469,16 +454,6 @@ else:
                   if gmpy2.hamdist(key,uwkey) <= thresholduw:
                     testdiff = False
                   
-#                i = 0
-#                while i < len(unwanted):
-#                  dist = gmpy2.hamdist(key,unwanted[i])
-#                  i = i + 1
-#                  if dist <= thresholduw :
-#                    testdiff = False
-#                    i = 9999999
-            
-#                  log('Near unwanted copied from ' + setimg[len(setimg)-1][5:] + ' to ' + folderana + 'mindist' + str(mindist) + '/')
-#                  shutil.copy2(setimg[len(setimg)-1][5:], folderana + 'mindist' + str(mindist) + '/')
             t2 = t2 + time.perf_counter() - perf2
 
     f.close
@@ -514,11 +489,15 @@ else:
 
     #Sort by 1st source then group and count same duplicate sets.
     resultsetvideo = sorted(resultsetvideo, key=sortsources)
+   
     log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' elements.', 0)
     rsv = []
     prev = ['','']
 
     for i in range(len(resultsetvideo)):
+      if prev == resultsetvideo[i]:
+        log('Do nothing, complete duplicate.', 4)
+      else:
         if prev[1] != resultsetvideo[i][1]:
             prev = resultsetvideo[i]
             rsv.append(prev)
@@ -526,7 +505,7 @@ else:
             rsv[len(rsv)-1][0] = rsv[len(rsv)-1][0] + 1
             for j in range(len(resultsetvideo[i][2])):
                 rsv[len(rsv)-1][2].append(resultsetvideo[i][2][j])
-                rsv[len(rsv)-1][3].append(resultsetvideo[i][3][j])
+#                rsv[len(rsv)-1][3].append(resultsetvideo[i][3][j])
         # Remove duplicate source images
         tmprs = sorted(resultsetvideo[i][2])
         resultsetvideo[i][2] = []
@@ -539,6 +518,7 @@ else:
     log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' unique dupes.', 0)
 
     rsv = sorted(rsv, key=sortoccurence, reverse=True)
+    
     named= []
     resultsetvideo = []
     log('Check occurence >= ' + str(threshold), 2)
@@ -636,26 +616,15 @@ else:
         print('.', end='', flush=True)
         hdkey = []
         for j in range(0, len(resultsetvideo[i][2])):
-#          print(resultsetvideo[i][2][j])
-#          print(MidName(resultsetvideo[i][2][j]))
           hdk = -1
-#          print('hdcacheimg[0] = ' + hdcacheimg[0])
-#          print('resultsetvideo[i][2][j]) = ' + resultsetvideo[i][2][j])
-#          exit()
           try:
             hdk = hdcachekey[hdcacheimg.index(resultsetvideo[i][2][j])]
-#            print('found : ' + MidName(resultsetvideo[i][2][j]))
-#            exit()
           except:
-#            log(resultsetvideo[i][2][j] + ' not found in cache.', 2)
             imagefile = newimage(resultsetvideo[i][2][j])
             if imagefile != '':
               hdk = calcfp(imagefile,3)
-  #            log('hdk = calcfp(' + imagefile + ',3)=' + str(hdk))
               hdcacheimg.append(MidName(imagefile))
               hdcachekey.append(hdk)
-  #            print(hdkey[len(hdkey)-1])
-  #            exit()
               
           if hdk != -1:
             hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
@@ -672,13 +641,7 @@ else:
             hddupe = sorted(hddupe, key=sortoccurence)
             # distance, img1, img2
             if (hddupe != []):
-#                print('i=' + str(i) + ', j=' + str(j))
-#                print(hddupe[0][0])
-#                print(hdkey[j][1])
-#                print(hdkey[hddupe[0][1]][1])
                 hdbest.append([hddupe[0][0], hdkey[j][1], hdkey[hddupe[0][1]][1]])
-#                print('hdbest :')
-#                print([hddupe[0][0], hdkey[j][1], hdkey[hddupe[0][1]][1]])
                 
         perf3 = time.perf_counter()
         t2 = t2 + perf3 - perf2
@@ -686,7 +649,6 @@ else:
             hdbest = sorted(hdbest, key=sortoccurence)
             j = 0
             s = ''
-#            print(str(len(hdbest)) + ' vs ' + str(j))
             while (j < len(hdbest)) and (hdbest[j][0] <= hdmaxdiff):
                 s = s + str(hdbest[j][0]) + ', '
                 j = j + 1
