@@ -69,16 +69,16 @@ def ShortName(fullname):
     return r
 
 def MidName(line):
-    try:
-      pend = len(line) - 1
-      while line[pend] != '/': pend = pend - 1
-      pbeg = pend - 1
-      while line[pbeg] != '/': pbeg = pbeg - 1
-      r = line[pbeg+1:]
-    except:
+    pend = len(line) - 1
+    while (pend > 0) and (line[pend] != '/'): 
+      pend = pend - 1
+    if pend == 0:
       r = line
-      log('Error : MidName(' + line + ')')
-      halt
+    else:
+      pbeg = pend - 1
+      while (pbeg >= 0) and (line[pbeg] != '/'):
+        pbeg = pbeg - 1
+      r = line[pbeg+1:]
     return r 
 
 #Give the name of a file by removing the forder reference
@@ -572,6 +572,7 @@ else:
             n = threshold
             prev = ''
             for j in range(len(rsv[i][2])):
+                print('PathName(rsv[i][2][j]) = ' + PathName(rsv[i][2][j]))
                 if prev == PathName(rsv[i][2][j]):
                     n = n + 1
                 else:

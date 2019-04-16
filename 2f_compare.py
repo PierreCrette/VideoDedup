@@ -227,7 +227,7 @@ def Compare():
     global nn
     global nbsrc
     
-    perf = time.perf_counter()
+#    perf = time.perf_counter()
 
     log('Begin comparison of {:_}'.format(len(fp)) + ' fingerprints.', 0)
 
