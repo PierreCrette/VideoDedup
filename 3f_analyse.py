@@ -572,7 +572,6 @@ else:
             n = threshold
             prev = ''
             for j in range(len(rsv[i][2])):
-                print('PathName(rsv[i][2][j]) = ' + PathName(rsv[i][2][j]))
                 if prev == PathName(rsv[i][2][j]):
                     n = n + 1
                 else:
