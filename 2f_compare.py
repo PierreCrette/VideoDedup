@@ -226,14 +226,10 @@ def Compare():
     global path
     global nn
     global nbsrc
+    global perf
     
-#    perf = time.perf_counter()
-
     log('Begin comparison of {:_}'.format(len(fp)) + ' fingerprints.', 0)
 
-#    if os.path.exists(script):
-#        os.remove(script)
-            
     nbcompared = 0
     for n in range(len(fp)):
       nbcompared = nbcompared + 1
