@@ -200,7 +200,12 @@ def loadunwanted(folder):
                 if line[:5] == 'pair=':
                     tmplist.append(line[5:-1])
             f.close
-            uwpair.append(tmplist)
+            if tmplist in uwpair:
+              print('Duplicate pair :')
+              print(tmplist)
+              os.remove(folder + file)
+            else:
+              uwpair.append(tmplist)
 
     if os.path.exists(folder + 'unwantedimages.fp'):
         f = open(folder + 'unwantedimages.fp', 'r')
@@ -538,7 +543,7 @@ else:
 
     for i in range(len(rsv)):
       
-        log('rsv[' + str(i) + '] : occurences = ' + str(rsv[i][0]), 4)
+#        log('rsv[' + str(i) + '] : occurences = ' + str(rsv[i][0]), 4)
         keep = (rsv[i][0] >= threshold)
         if not(keep):
             rejthr = rejthr + 1
@@ -579,6 +584,19 @@ else:
             if not(keep):
                 rejimg = rejimg + 1
         if keep:
+            keep = False
+#            print(srclst[0][0] + ' =? ' + rsv[i][1][0])
+            for srcelt in srclst:
+              if srcelt[0] == rsv[i][1][0]:
+                keep = True
+            if keep:
+                keep = False
+                for srcelt in srclst:
+                  if srcelt[0] == rsv[i][1][1]:
+                    keep = True
+            if not(keep):
+              rejdel = rejdel + 1
+        if keep:
             for j in range(len(rsv[i][1])):
                 named.append(rsv[i][1][j])
             resultsetvideo.append(rsv[i])
@@ -586,7 +604,7 @@ else:
     log(duration(time.perf_counter() - perf) + ' - Controls restricted list from {:_}'.format(len(rsv)) + ' to ' + txtgreen + \
      '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor, 0)
     log('{:_}'.format(rejthr) + ' + {:_}'.format(rejimg) + ' rejections due to common images < {:_}'.format(threshold) + ', {:_}'.format(rejref) + \
-        ' previously references sources, {:_}'.format(rejdel) + ' moved or deleted sources.', 1)
+        ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
 
     #Calculate HD distance to limit resultset
     hdcacheimg = []
@@ -598,12 +616,12 @@ else:
         if line[:6] == 'hdkey=':
           hdkey = line[6:-1]
         if line[:5] == 'file=':
-#          print('LoadHDcache line = ' + line[:-1])
-#          print('LoadHDcache MidName = ' + MidName(line[:-1]))
-          if len(line) > 22:
-#          if not(hdfile in hdcacheimg):
-            hdcacheimg.append(line[5:-1])
-            hdcachekey.append(int(hdkey))
+          if (len(line) > 22):
+#            if not(line[5:-1] in hdcacheimg):
+              hdcacheimg.append(line[5:-1])
+              hdcachekey.append(int(hdkey))
+#            else:
+#              log('HDcache remove ' + line[5:-1] + '; ' + hdkey)
       f.close
       if worksize > 100000:
         log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcacheimg)) + ' elements.')
@@ -614,14 +632,22 @@ else:
     perf3 = time.perf_counter()
 #    hdrs.append([similarity, setimg, sethdkey])
 #    resultsetvideo.append([1, setvideo, setimg, setprt])
+    jump = 10
+    if len(resultsetvideo) > 500:
+      jump = 20
+    if len(resultsetvideo) > 2000:
+      jump = 50
+    if len(resultsetvideo) > 5000:
+      jump = 100
+    
     rsv = []
     for i in range(0, len(resultsetvideo)):
         perf1 = time.perf_counter()
         t3 = t3 + perf1 - perf3
 
-        if (i % 10 == 0):
+        if (i % jump == 0):
           print('')
-          print(duration(time.perf_counter() - perf) + ' - ' + str(i), end='', flush=True)
+          print(duration(time.perf_counter() - perf) + ' - ' + str(i) + '/' + str(len(resultsetvideo)) + ' ', end='', flush=True)
         print('.', end='', flush=True)
         hdkey = []
         for j in range(0, len(resultsetvideo[i][2])):
@@ -741,10 +767,11 @@ else:
                         if d[1] != prev:
                             log('d <> prev', 4)
                             f.write(d[1] + '\n')
-                            log(fld + SlashToSpace(d[1], len(folderimg)), 2)
+#                            log(fld + SlashToSpace(d[1], len(folderimg)), 2)
+#                            log(fld + SlashToSpace(d[1], 0, 2)
                             imgf = newimage(d[1])
                             if os.path.exists(imgf):
-                                shutil.copy2(imgf,fld + SlashToSpace(d[1], len(folderimg)))
+                                shutil.copy2(imgf,fld + SlashToSpace(d[1], 0))
                             else:
                                 log(txterr + 'Not exist ' + imgf + txtnocolor)
                         prev = d[1]

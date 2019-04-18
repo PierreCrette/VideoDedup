@@ -89,7 +89,6 @@ def BoucleFichiers(folderi='.'):
     fp1 = []
 
     log('BoucleFichiers ' + folderi, 4)
-    perf = time.perf_counter()
     if os.path.isdir(folderi):
         if folderi[-1] != "/": folderi = folderi + "/"
         for file in os.listdir(folderi):
@@ -366,6 +365,7 @@ else:
     log (' Find duplicate images in ' + folderimg, 0)
     log ('************************************************************************************', 0)
     
+    perf = time.perf_counter()
     log(duration(0) + ' - Locate *.fp and load into memory...',1)
     BoucleFichiers(folderimg)
     
