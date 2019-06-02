@@ -11,7 +11,7 @@ Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own l
 
 . 1f_parse scan video source folder, replicate with ffmpeg an image folder, then for each image create a fingerprint. 1f_parse can also detect moved source file and move accordingly image folder avoiding calculation.
 
-. 2f_compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name.
+. compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name. Since 201906 in free Pascal for x3 speed and less memory usage in multi-threading.
 
 . 3f_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
 
@@ -65,7 +65,7 @@ folderimg = where your images will be created. MUST include the /db/ path (see a
 
 
 
-# 2f_compare.py
+# compare
 
 Parse the image folder to load fingerprint.fp files in memory and then compare all and store set of duplicates.
 
@@ -81,11 +81,11 @@ Parse the image folder to load fingerprint.fp files in memory and then compare a
 
 -threads=n   Number of threads to use. Make tests to find better option for your computer. Performance impact.
 
--mask=n      To limit the comparison to some images files for each source file. 1/n images are used. Performance impact.
+-mask=n      Not implemented in FPC. To limit the comparison to some images files for each source file. 1/n images are used. Performance impact.
 
--masksize=n  Read n images per source then skip based on mask.
+-masksize=n  Not implemented in FPC. Read n images per source then skip based on mask.
 
--maskmethod= cycle: read masksize images per source then skip (mask-1)*masksize images, random: if random<1/mask then read masksize images else skip maxsize images.
+-maskmethod= cycle: Not implemented in FPC. read masksize images per source then skip (mask-1)*masksize images, random: if random<1/mask then read masksize images else skip maxsize images.
 
 -checkall    Compare new sources/images against ALL other. By default only against NEXT.    
 
@@ -175,7 +175,7 @@ HD comparison is long but computed HDfingerprints are store in a cache. The -hdm
 
 # UNDERSTAND
 
-The 1parse and 2f_compare have a recover procedure based on .run files /db/folder/video.run. It will redo incomplete videos or changed in fps parameter.
+The 1parse and compare have a recover procedure based on .run files /db/folder/video.run. It will redo incomplete videos or changed in fps parameter.
 
 To go deeper you can modify python programs :
 1parse.py contains the list of video formats to select. You can add more.
