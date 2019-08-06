@@ -108,17 +108,14 @@ Program who scan duplicates, remove some false duplicates (same image 2 times in
 -fake          Will not copy source and image files in analyse folder. Usefull at beginning to feed caches, to generate clean (-out) file and to avoid HD calculation with open parameters.
 
 Examples :
-1st run to clean up the resultset file, erase already known unwanted images and sets, remove results on deleted source files.
-./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=10 -out=resultset.v1 -fake
 
-2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives).
-./3f_analyse.py foldersrc folderimg resultset -t=15 -tu=3 -maxdiff=4 -hdmaxdiff=60 
+1st run to clean up the resultset file, erase already known unwanted images and sets, remove results on deleted source files : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=10 -out=resultset.v1 -fake
 
-3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important.
-./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 
+2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives) : ./3f_analyse.py foldersrc folderimg resultset -t=15 -tu=3 -maxdiff=4 -hdmaxdiff=60 
 
-Last run to deal with remaining data (mostly false positive).
-./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 -ctrlref=False
+3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 
+
+Last run to deal with remaining data (mostly false positive) : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 -ctrlref=False
     
 
 # HOW TO
@@ -129,17 +126,11 @@ The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can cal
 
 ## Initial run
 
-Average precision :
+Average precision : 1f_parse -f=60; CompareV2 -t=8; 3f_analyse -t=3 -maxdiff=8 -hdmaxdiff=60
 
-1f_parse -f=60; CompareV2 -t=8; 3f_analyse -t=3 -maxdiff=8 -hdmaxdiff=60
+Good precision. Will last multiple days running on multiple computers : 1f_parse -f=10; CompareV2 -t=9; 3f_analyse -t=4 -maxdiff=8 -hdmaxdiff=60
 
-Good precision. Will last multiple days running on multiple computers :
-
-1f_parse -f=10; CompareV2 -t=9; 3f_analyse -t=4 -maxdiff=8 -hdmaxdiff=60
-
-Very good precision. Very long :
-
-1f_parse -f=2; CompareV2 -t=10; 3f_analyse -t=5 -maxdiff=8 -hdmaxdiff=60
+Very good precision. Very long : 1f_parse -f=2; CompareV2 -t=10; 3f_analyse -t=5 -maxdiff=8 -hdmaxdiff=60
 
 ## Maintenance run
 
