@@ -9,6 +9,8 @@ Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own l
 
 # Version 2
 
+Version published the 6th of August 2019 is considered as final.
+
 . 1f_parse scan video source folder, replicate with ffmpeg an image folder, then for each image create a fingerprint. 1f_parse can also detect moved source file and move accordingly image folder avoiding calculation.
 
 . compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name. Since 201906 in free Pascal for x3 speed and less memory usage in multi-threading.
