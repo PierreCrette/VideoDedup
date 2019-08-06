@@ -119,7 +119,7 @@ def newimage(line):
 #  return result
   
 #Replace / in path to create an image file with reference to source path
-def SlashToSpace(fullname, start):
+def SlashToSpace(fullname, start=0):
     s = ''
     for k in range(start, len(fullname)):
         if fullname[k] == '/':
@@ -133,6 +133,9 @@ def sortoccurence(elem):
 
 def sortsources(elem):
     return elem[1][0] + elem[1][1]
+
+def sortimages(elem):
+    return elem[2][0] + elem[2][1]
 
 def calcfp(file, quality, display=False):
   result = -1
@@ -346,7 +349,6 @@ else:
     log('folderana = ' + folderana, 2)
     log('fresultset = ' + fresultset, 2)
     log('', 2)
-
     
     sshell = sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2] + ' ' + sys.argv[3] + ' -v=' + str(debug) + ' -t=' + str(threshold) 
     sshell = sshell + ' -tu=' + str(thresholduw) + ' -maxdiff=' + str(maxdiff) + ' -hdmaxdiff=' + str(hdmaxdiff) + ' -ctrlref=' + str(ctrlref)
@@ -432,8 +434,8 @@ else:
                 if setvideo in uwpair:
                     nbuwpair = nbuwpair + 1
                 else:
-                    resultsetvideo.append([1, setvideo, setimg, setprt, setkey, similarity])
-#                    log(slgn + 'New ' + str(setvideo), 4)
+                    r = [1, setvideo, setimg, setprt, setkey, similarity]
+                    resultsetvideo.append(r)
                 t1 = t1 + time.perf_counter() - perf1
             
             else:
@@ -474,312 +476,323 @@ else:
     worksize = len(resultsetvideo)
     log(duration(time.perf_counter() - perf) + ' - STEP1 done. {:_}'.format(worksize) + ' dupes found. {:_}'.format(nbstill) + \
          ' stills rejected and {:_}'.format(nbunwant) + ' unwanted images, {:_}'.format(nbuwpair) + ' unwanted pairs.', 1)
-    log('     ' + duration(t1) + ' - t1 = Uwanted pairs controls and removal.')
+    log('     ' + duration(t1) + ' - t1 = Uwanted pairs & duplicate set controls and removal.')
     log('     ' + duration(t2) + ' - t2 = Uwanted images/keys controls and removal.')
     
     if foutput != '':
+      log(duration(time.perf_counter() - perf) + ' - Start writting output file to disk.', 1)
+      resultsetvideo = sorted(resultsetvideo, key=sortimages)
       f = open(foutput, 'w')
+      prev = ['','']
       for r in resultsetvideo:
-          if (len(r[2]) != 2) or (len(r[4]) != 2):
-            log('ERROR, more than 2 images in the set :')
-            print(r)
+#          if (len(r[2]) != 2) or (len(r[4]) != 2):
+#            log('ERROR, more than 2 images in the set :')
+#            print(r)
 #          log(r[2][0],4)
-          f.write('BEGIN. Similarity=' + str(r[5]) + '\n')
-          f.write('file=' + r[2][0] + '\n')
-          f.write('key=' + str(r[4][0]) + '\n')
-          f.write('file=' + r[2][1] + '\n')
-          f.write('key=' + str(r[4][1]) + '\n')
-          f.write('END' + '\n')        
+          if prev == r[2]:
+            log('Outdupe removed : ' + prev[0] + '; ' + prev[1], 2)
+          else:
+            prev = r[2]
+            f.write('BEGIN. Similarity=' + str(r[5]) + '\n')
+            f.write('file=' + r[2][0] + '\n')
+            f.write('key=' + str(r[4][0]) + '\n')
+            f.write('file=' + r[2][1] + '\n')
+            f.write('key=' + str(r[4][1]) + '\n')
+            f.write('END' + '\n')        
       f.close
-      log(duration(time.perf_counter() - perf) + ' - Output file written to disk : ' + foutput)
+      log(duration(time.perf_counter() - perf) + ' - Output file written to disk : ' + foutput, 1)
 
-    #Step 2: clean files in multiple duplicates
-    log('****************************************', 1)
-    log('* STEP 2 : HD COMPARE TO NARROW FILTER *', 1)
-    log('****************************************', 1)
-    if worksize > 1000000:
-      log(txtgreen + sshell + txtnocolor, 1)
-#    resultsetvideo.append([1, setvideo, setimg, setprt])
-
-    #Sort by 1st source then group and count same duplicate sets.
-    resultsetvideo = sorted(resultsetvideo, key=sortsources)
-   
-    log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' elements.', 0)
-    rsv = []
-    prev = ['','']
-
-    for i in range(len(resultsetvideo)):
-      if prev == resultsetvideo[i]:
-        log('Do nothing, complete duplicate.', 4)
-      else:
-        if prev[1] != resultsetvideo[i][1]:
-            prev = resultsetvideo[i]
-            rsv.append(prev)
+    if not(fake):
+      #Step 2: clean files in multiple duplicates
+      log('****************************************', 1)
+      log('* STEP 2 : HD COMPARE TO NARROW FILTER *', 1)
+      log('****************************************', 1)
+      if worksize > 1000000:
+        log(txtgreen + sshell + txtnocolor, 1)
+  #    resultsetvideo.append([1, setvideo, setimg, setprt])
+  
+      #Sort by 1st source then group and count same duplicate sets.
+      resultsetvideo = sorted(resultsetvideo, key=sortsources)
+     
+      log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' elements.', 0)
+      rsv = []
+      prev = ['','']
+  
+      for i in range(len(resultsetvideo)):
+        if prev == resultsetvideo[i]:
+          log('Do nothing, complete duplicate.', 4)
         else:
-            rsv[len(rsv)-1][0] = rsv[len(rsv)-1][0] + 1
-            for j in range(len(resultsetvideo[i][2])):
-                rsv[len(rsv)-1][2].append(resultsetvideo[i][2][j])
-#                rsv[len(rsv)-1][3].append(resultsetvideo[i][3][j])
-        # Remove duplicate source images
-        tmprs = sorted(resultsetvideo[i][2])
-        resultsetvideo[i][2] = []
-        previ = ''
-        for j in range(len(tmprs)):
-            if (previ != tmprs[j]):
-                previ = tmprs[j]
-                resultsetvideo[i][2].append(previ)
-
-    log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' unique dupes.', 0)
-
-    rsv = sorted(rsv, key=sortoccurence, reverse=True)
-    
-    named= []
-    resultsetvideo = []
-    log('Check occurence >= ' + str(threshold), 2)
-    rejthr = 0
-    rejref = 0
-    rejdel = 0
-    rejimg = 0
-
-    for i in range(len(rsv)):
+          if prev[1] != resultsetvideo[i][1]:
+              prev = resultsetvideo[i]
+              rsv.append(prev)
+          else:
+              rsv[len(rsv)-1][0] = rsv[len(rsv)-1][0] + 1
+              for j in range(len(resultsetvideo[i][2])):
+                  rsv[len(rsv)-1][2].append(resultsetvideo[i][2][j])
+  #                rsv[len(rsv)-1][3].append(resultsetvideo[i][3][j])
+          # Remove duplicate source images
+          tmprs = sorted(resultsetvideo[i][2])
+          resultsetvideo[i][2] = []
+          previ = ''
+          for j in range(len(tmprs)):
+              if (previ != tmprs[j]):
+                  previ = tmprs[j]
+                  resultsetvideo[i][2].append(previ)
+  
+      log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' unique dupes.', 0)
+  
+      rsv = sorted(rsv, key=sortoccurence, reverse=True)
       
-#        log('rsv[' + str(i) + '] : occurences = ' + str(rsv[i][0]), 4)
-        keep = (rsv[i][0] >= threshold)
-        if not(keep):
-            rejthr = rejthr + 1
-        if keep and ctrlref:
-            for j in range(len(rsv[i][1])):
-                if rsv[i][1][j] in named:
-                    log('Rejected cause ' + rsv[i][1][j] + ' previously referenced.', 2)
-                    keep = False
-            if not(keep):
-                rejref = rejref + 1
-        if keep:
-            images = sorted(rsv[i][2])
-            rsv[i][2] = []
-            prev = ''
-            for j in range(len(images)):
-                if prev != images[j]:
-                    rsv[i][2].append(images[j])
-#                    print(str(j) + ' - ' + images[j])
-                    prev = images[j]
-            n = threshold
-            prev = ''
-            for j in range(len(rsv[i][2])):
-                if prev == PathName(rsv[i][2][j]):
-                    n = n + 1
-                else:
-                    if n < threshold:
-                        log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 2)
-                        for k in range(min(6,len(rsv[i][2]))):
-                          log(rsv[i][2][k], 2)
-                        keep = False
-                    prev = PathName(rsv[i][2][j])
-                    n = 1
-            if n < threshold:
-               log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 2)
-#               for k in range(len(rsv[i][2])): log(rsv[i][2][k], 2)
-               keep = False
-
-            if not(keep):
-                rejimg = rejimg + 1
-        if keep:
-            keep = False
-#            print(srclst[0][0] + ' =? ' + rsv[i][1][0])
-            for srcelt in srclst:
-              if srcelt[0] == rsv[i][1][0]:
-                keep = True
-            if keep:
-                keep = False
-                for srcelt in srclst:
-                  if srcelt[0] == rsv[i][1][1]:
-                    keep = True
-            if not(keep):
-              rejdel = rejdel + 1
-        if keep:
-            for j in range(len(rsv[i][1])):
-                named.append(rsv[i][1][j])
-            resultsetvideo.append(rsv[i])
-
-    log(duration(time.perf_counter() - perf) + ' - Controls restricted list from {:_}'.format(len(rsv)) + ' to ' + txtgreen + \
-     '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor, 0)
-    log('{:_}'.format(rejthr) + ' + {:_}'.format(rejimg) + ' rejections due to common images < {:_}'.format(threshold) + ', {:_}'.format(rejref) + \
-        ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
-
-    #Calculate HD distance to limit resultset
-    hdcacheimg = []
-    hdcachekey = []
-    hdkey = -1
-    if os.path.exists(foutputhd):
-      f = open(foutputhd, 'r')
-      for line in f:
-        if line[:6] == 'hdkey=':
-          hdkey = line[6:-1]
-        if line[:5] == 'file=':
-          if (len(line) > 22):
-#            if not(line[5:-1] in hdcacheimg):
-              hdcacheimg.append(line[5:-1])
-              hdcachekey.append(int(hdkey))
-#            else:
-#              log('HDcache remove ' + line[5:-1] + '; ' + hdkey)
-      f.close
-      if worksize > 100000:
-        log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcacheimg)) + ' elements.')
+      named= []
+      resultsetvideo = []
+      log('Check occurence >= ' + str(threshold), 3)
+      rejthr = 0
+      rejref = 0
+      rejdel = 0
+      rejimg = 0
+  
+      for i in range(len(rsv)):
         
-    t1 = 0
-    t2 = 0
-    t3 = 0
-    perf3 = time.perf_counter()
-#    hdrs.append([similarity, setimg, sethdkey])
-#    resultsetvideo.append([1, setvideo, setimg, setprt])
-    jump = 10
-    if len(resultsetvideo) > 500:
-      jump = 20
-    if len(resultsetvideo) > 2000:
-      jump = 50
-    if len(resultsetvideo) > 5000:
-      jump = 100
-    
-    rsv = []
-    for i in range(0, len(resultsetvideo)):
-        perf1 = time.perf_counter()
-        t3 = t3 + perf1 - perf3
+  #        log('rsv[' + str(i) + '] : occurences = ' + str(rsv[i][0]), 4)
+          keep = (rsv[i][0] >= threshold)
+          if not(keep):
+              rejthr = rejthr + 1
+          if keep and ctrlref:
+              for j in range(len(rsv[i][1])):
+                  if rsv[i][1][j] in named:
+                      log('Rejected cause ' + rsv[i][1][j] + ' previously referenced.', 3)
+                      keep = False
+              if not(keep):
+                  rejref = rejref + 1
+          if keep:
+              images = sorted(rsv[i][2])
+              rsv[i][2] = []
+              prev = ''
+              for j in range(len(images)):
+                  if prev != images[j]:
+                      rsv[i][2].append(images[j])
+                      prev = images[j]
+              n = threshold
+              prev = ''
+              for j in range(len(rsv[i][2])):
+                  if prev == PathName(rsv[i][2][j]):
+                      n = n + 1
+                  else:
+                      if n < threshold:
+                          log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 3)
+#                          for k in range(min(6,len(rsv[i][2]))):
+#                            log(rsv[i][2][k], 3)
+                          keep = False
+                      prev = PathName(rsv[i][2][j])
+                      n = 1
+              if n < threshold:
+                 log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 3)
+  #               for k in range(len(rsv[i][2])): log(rsv[i][2][k], 2)
+                 keep = False
+  
+              if not(keep):
+                  rejimg = rejimg + 1
+          if keep:
+              keep = False
+  #            print(srclst[0][0] + ' =? ' + rsv[i][1][0])
+              for srcelt in srclst:
+                if srcelt[0] == rsv[i][1][0]:
+                  keep = True
+              if keep:
+                  keep = False
+                  for srcelt in srclst:
+                    if srcelt[0] == rsv[i][1][1]:
+                      keep = True
+              if not(keep):
+                rejdel = rejdel + 1
+                log('Deleted : ' + rsv[i][1][1], 2)
+          if keep:
+              for j in range(len(rsv[i][1])):
+                  named.append(rsv[i][1][j])
+              resultsetvideo.append(rsv[i])
+  
+      log(duration(time.perf_counter() - perf) + ' - Controls restricted list from {:_}'.format(len(rsv)) + ' to ' + txtgreen + \
+       '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor, 0)
+      log('{:_}'.format(rejthr) + ' + {:_}'.format(rejimg) + ' rejections due to common images < {:_}'.format(threshold) + ', {:_}'.format(rejref) + \
+          ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
+  
+      #Calculate HD distance to limit resultset
+      hdcacheimg = []
+      hdcachekey = []
+      hdkey = -1
+      if os.path.exists(foutputhd):
+        f = open(foutputhd, 'r')
+        for line in f:
+          if line[:6] == 'hdkey=':
+            hdkey = line[6:-1]
+          if line[:5] == 'file=':
+            if (len(line) > 22):
+  #            if not(line[5:-1] in hdcacheimg):
+                hdcacheimg.append(line[5:-1])
+                hdcachekey.append(int(hdkey))
+  #            else:
+  #              log('HDcache remove ' + line[5:-1] + '; ' + hdkey)
+        f.close
+        if worksize > 100000:
+          log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcacheimg)) + ' elements.')
+          
+      t1 = 0
+      t2 = 0
+      t3 = 0
+      perf3 = time.perf_counter()
+  #    hdrs.append([similarity, setimg, sethdkey])
+  #    resultsetvideo.append([1, setvideo, setimg, setprt])
+      jump = 10
+      if len(resultsetvideo) > 500:
+        jump = 20
+      if len(resultsetvideo) > 2000:
+        jump = 50
+      if len(resultsetvideo) > 5000:
+        jump = 100
+      
+      rsv = []
+      for i in range(0, len(resultsetvideo)):
+          if (time.perf_counter() - perf1) > 10:
+            log(duration(time.perf_counter() - perf) + ' - ' + str(i) + '/' + str(len(resultsetvideo)) + ' ' + PathName(resultsetvideo[i][2][0]), 1)
+          else:
+            if (i % jump == 0):
+              print('')
+              print(duration(time.perf_counter() - perf) + ' - ' + str(i) + '/' + str(len(resultsetvideo)) + ' ', end='', flush=True)
+            print('.', end='', flush=True)
 
-        if (i % jump == 0):
-          print('')
-          print(duration(time.perf_counter() - perf) + ' - ' + str(i) + '/' + str(len(resultsetvideo)) + ' ', end='', flush=True)
-        print('.', end='', flush=True)
-        hdkey = []
-        for j in range(0, len(resultsetvideo[i][2])):
-          hdk = -1
-          try:
-            hdk = hdcachekey[hdcacheimg.index(resultsetvideo[i][2][j])]
-          except:
-            imagefile = newimage(resultsetvideo[i][2][j])
-            if imagefile != '':
-              hdk = calcfp(imagefile,3)
-              hdcacheimg.append(MidName(imagefile))
-              hdcachekey.append(hdk)
-              
-          if hdk != -1:
-            hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
-        
-        perf2 = time.perf_counter()
-        t1 = t1 + perf2 - perf1
-        hdbest = []
-        for j in range(0, len(hdkey)):
-            hddupe = []
-            for k in range(j+1, len(hdkey)):
-                if (hdkey[j][0] != hdkey[k][0]):
-#                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
-                    hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
-            hddupe = sorted(hddupe, key=sortoccurence)
-            # distance, img1, img2
-            if (hddupe != []):
-                hdbest.append([hddupe[0][0], hdkey[j][1], hdkey[hddupe[0][1]][1]])
+          perf1 = time.perf_counter()
+          t3 = t3 + perf1 - perf3
+  
+          hdkey = []
+          for j in range(0, len(resultsetvideo[i][2])):
+            hdk = -1
+            try:
+              #print('HC cache already exists for ' + resultsetvideo[i][2][j] + ' ?')
+              hdk = hdcachekey[hdcacheimg.index(resultsetvideo[i][2][j])]
+            except:
+              #print('Not exists. Then create HC cache for ' + resultsetvideo[i][2][j])
+              imagefile = newimage(resultsetvideo[i][2][j])  #Path of image found in memory ?
+              if imagefile != '':
+                hdk = calcfp(imagefile,3)
+                hdcacheimg.append(MidName(imagefile))
+                hdcachekey.append(hdk)
                 
-        perf3 = time.perf_counter()
-        t2 = t2 + perf3 - perf2
-        if (hdbest != []):
-            hdbest = sorted(hdbest, key=sortoccurence)
-            j = 0
-            s = ''
-            while (j < len(hdbest)) and (hdbest[j][0] <= hdmaxdiff):
-                s = s + str(hdbest[j][0]) + ', '
-                j = j + 1
-            if j < len(hdbest):
-              s = s + str(hdbest[j][0])
-            if (j < threshold):
-                log('Resultset rejected after HD 57x32 control. Best distances = ' + s, 2)
-                log(resultsetvideo[i][1][0], 2)
-                log(resultsetvideo[i][1][1], 2)
-            else:
-                rsv.append(resultsetvideo[i])
-            
-    print('')
-    log(duration(t1) + ' - T1 = HDkey computation or seek')
-    log(duration(t2) + ' - T2 = HDkey comparison')
-    log(duration(t3) + ' - T3 = other')
+            if hdk != -1:
+              hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
+          
+          perf2 = time.perf_counter()
+          t1 = t1 + perf2 - perf1
+          hdbest = []
+          for j in range(0, len(hdkey)):
+              hddupe = []
+              for k in range(j+1, len(hdkey)):
+                  if (hdkey[j][0] != hdkey[k][0]):
+  #                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
+                      hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
+              hddupe = sorted(hddupe, key=sortoccurence)
+              # distance, img1, img2
+              if (hddupe != []):
+                  hdbest.append([hddupe[0][0], hdkey[j][1], hdkey[hddupe[0][1]][1]])
+                  
+          perf3 = time.perf_counter()
+          t2 = t2 + perf3 - perf2
+          if (hdbest != []):
+              hdbest = sorted(hdbest, key=sortoccurence)
+              j = 0
+              s = ''
+              while (j < len(hdbest)) and (hdbest[j][0] <= hdmaxdiff):
+                  s = s + str(hdbest[j][0]) + ', '
+                  j = j + 1
+              if j < len(hdbest):
+                s = s + str(hdbest[j][0])
+              if (j < threshold):
+                  log('Resultset rejected after HD 57x32 control. Best distances = ' + s, 2)
+                  log(resultsetvideo[i][1][0], 2)
+                  log(resultsetvideo[i][1][1], 2)
+              else:
+                  rsv.append(resultsetvideo[i])
+              
+      print('')
+      log(duration(t1) + ' - T1 = HDkey computation or seek')
+      log(duration(t2) + ' - T2 = HDkey comparison')
+      log(duration(t3) + ' - T3 = other')
+  
+      # Store HD distances in a cache file for next run
+      if foutputhd != '':
+        f = open(foutputhd, 'w')
+        for i in range(len(hdcacheimg)):
+            f.write('hdkey=' + str(hdcachekey[i]) + '\n')
+            f.write('file=' + hdcacheimg[i] + '\n')
+        f.close
+        
+      print('')
+      log(duration(time.perf_counter() - perf) + ' - Limit to max HD 57x32 distance done. From {:_}'.format(len(resultsetvideo)) + txtgreen + \
+       ' to {:_}'.format(len(rsv)) + ' dupes.' + txtnocolor, 0)
+      resultsetvideo = rsv
+  
+      #Step 3: create Analyse folder and copy all files in it
+      log('*******************************************')
+      log('*    STEP 3 : COPY FILES FOR ANALYSIS     *')
+      log('*******************************************')
+      if fake:
+          log(txtgreen + 'Fake: Analyse folder not created.' + txtnocolor)
+          for i in range(len(resultsetvideo)):
+              log('resultsetvideo[' + str(i) + '] : occurences = ' + str(resultsetvideo[i][0]), 2)
+              log('Sources :', 2)
+              for j in range(len(resultsetvideo[i][1])): log(resultsetvideo[i][1][j], 2)
+              log('Images :', 4)
+              for j in range(len(resultsetvideo[i][2])): log(resultsetvideo[i][2][j], 4)
+      else:
+          if not(os.path.exists(folderana)):
+              os.mkdir(folderana)
+          for j in range(len(resultsetvideo)):
+              ok = True
+              fld = folderana + str(j) + '/'
+              x = resultsetvideo[j]
+              if x[0] >= threshold:
+                  if os.path.exists(fld):
+                      shutil.rmtree(fld)
+                  os.mkdir(fld, mode=0o777)
+  
+                  #x[1] are Video source files
+                  for d in enumerate(x[1]):
+                      patd1 = ''
+                      for srcelt in srclst:
+                        if srcelt[0] == d[1]:
+                          patd1 = srcelt[1] + d[1]
+                          
+                      log('Copy ' + patd1 + ' ' + fld + SlashToSpace(patd1, len(foldervideo)))
+                      if ok and os.path.exists(patd1):
+                          shutil.copy2(patd1, fld + SlashToSpace(patd1, len(foldervideo)))
+                      else:
+                          ok = False
+  
+                  #x[2] are images files
+                  if ok:
+                      f = open(fld + '/nb_match_' + str(x[0]) + '.' + str(j) + '.' + pid + '.txt','w')
+                      f.write('To move in ' + folderimg + '/unwanted to remove this pair from future comparison :\n')
+                      for d in enumerate(x[1]):
+                          f.write('pair=' + d[1] + '\n')
+                      f.write('#\n')
+                      f.write('Similar images files :\n')
+                      prev = ''
+                      for d in enumerate(x[2]):
+                          log('prev = ' + prev, 4)
+                          log('d[1]    = ' + d[1], 4)
+                          if d[1] != prev:
+                              log('d <> prev', 4)
+                              f.write(d[1] + '\n')
+                              imgf = newimage(d[1])
+                              if os.path.exists(imgf):
+                                  shutil.copy2(imgf,fld + SlashToSpace(imgf, len(folderimg)))
+                              else:
+                                  log(txterr + 'Not exist ' + imgf + txtnocolor, 1)
+                          prev = d[1]
+                      f.close
+                  else:
+                      shutil.rmtree(fld)
 
-    # Store HD distances in a cache file for next run
-    if foutputhd != '':
-      f = open(foutputhd, 'w')
-      for i in range(len(hdcacheimg)):
-          f.write('hdkey=' + str(hdcachekey[i]) + '\n')
-          f.write('file=' + hdcacheimg[i] + '\n')
-      f.close
-      
-    print('')
-    log(duration(time.perf_counter() - perf) + ' - Limit to max HD 57x32 distance done. From {:_}'.format(len(resultsetvideo)) + txtgreen + \
-     ' to {:_}'.format(len(rsv)) + ' dupes.' + txtnocolor, 0)
-    resultsetvideo = rsv
-
-    #Step 3: create Analyse folder and copy all files in it
-    log('*******************************************')
-    log('*    STEP 3 : COPY FILES FOR ANALYSIS     *')
-    log('*******************************************')
-    if fake:
-        log(txtgreen + 'Fake: Analyse folder not created.' + txtnocolor)
-        for i in range(len(resultsetvideo)):
-            log('resultsetvideo[' + str(i) + '] : occurences = ' + str(resultsetvideo[i][0]), 2)
-            log('Sources :', 2)
-            for j in range(len(resultsetvideo[i][1])): log(resultsetvideo[i][1][j], 2)
-            log('Images :', 4)
-            for j in range(len(resultsetvideo[i][2])): log(resultsetvideo[i][2][j], 4)
-    else:
-        if not(os.path.exists(folderana)):
-            os.mkdir(folderana)
-        for j in range(len(resultsetvideo)):
-            ok = True
-            fld = folderana + str(j) + '/'
-            x = resultsetvideo[j]
-            if x[0] >= threshold:
-                if os.path.exists(fld):
-                    shutil.rmtree(fld)
-                os.mkdir(fld, mode=0o777)
-
-                #x[1] are Video source files
-                for d in enumerate(x[1]):
-                    patd1 = ''
-                    for srcelt in srclst:
-                      if srcelt[0] == d[1]:
-                        patd1 = srcelt[1] + d[1]
-                        
-                    log('Copy ' + patd1 + ' ' + fld + d[1])
-                    if ok and os.path.exists(patd1):
-#                        shutil.copy2(patd1, fld + SlashToSpace(patd1, len(foldervideo)))
-                        shutil.copy2(patd1, fld + d[1])
-                    else:
-                        ok = False
-
-                #x[2] are images files
-                if ok:
-                    f = open(fld + '/nb_match_' + str(x[0]) + '.' + str(j) + '.' + pid + '.txt','w')
-                    f.write('To move in ' + folderimg + '/unwanted to remove this pair from future comparison :\n')
-                    for d in enumerate(x[1]):
-                        f.write('pair=' + d[1] + '\n')
-                    f.write('#\n')
-                    f.write('Similar images files :\n')
-                    prev = ''
-                    for d in enumerate(x[2]):
-                        log('prev = ' + prev, 4)
-                        log('d[1]    = ' + d[1], 4)
-                        if d[1] != prev:
-                            log('d <> prev', 4)
-                            f.write(d[1] + '\n')
-#                            log(fld + SlashToSpace(d[1], len(folderimg)), 2)
-#                            log(fld + SlashToSpace(d[1], 0, 2)
-                            imgf = newimage(d[1])
-                            if os.path.exists(imgf):
-                                shutil.copy2(imgf,fld + SlashToSpace(d[1], 0))
-                            else:
-                                log(txterr + 'Not exist ' + imgf + txtnocolor)
-                        prev = d[1]
-                    f.close
-                else:
-                    shutil.rmtree(fld)
-
-log(duration(time.perf_counter() - perf) + ' - STEP3 done' , 1)
+log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'Finished.' + txtnocolor, 1)
 log('', 0)
 log(txtgreen + sshell + txtnocolor, 1)
 flog.close
