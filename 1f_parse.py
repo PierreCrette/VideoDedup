@@ -41,14 +41,15 @@ def log(s='', threshold=1):
     flog.write(s + '\n')
     if debug >= threshold: print(s)
 
-def duration(d):
-    h = d // 3600
-    m = (d - 3600*h) // 60
+def duration(d, dat=True):
+    h = int(d // 3600)
+    m = int((d - 3600*h) // 60)
     s = d - 3600*h - 60*m
-    r = str(round(s,1)) + ' s'
-    if (d < 2): r = str(round(s,3)) + ' s'
-    if (d > 60): r = str(round(m)) + ' mn ' + str(round(s))
-    if (d > 3600): r = str(round(h)) + ' h ' + str(round(m))
+    if d > 3600: r = '{:02d}'.format(h) + ' h ' + '{:02d}'.format(m)
+    elif d > 60: r = '{:02d}'.format(m) + ' mn ' + '{:02.0f}'.format(s)
+    else: r = '{:02.3f}'.format(s) + ' s'
+    if dat:
+        r = txtgreen + time.asctime(time.localtime(time.time())) + txtnocolor + ' ' + r
     return r
     
 def sortoccurence(elem):
@@ -60,10 +61,10 @@ def BoucleSupp(radical='', root=True):
 
     if radical != "":
         if radical[-1] != "/": radical = radical + "/"
-    log ('BoucleSupp(' + radical + ')', 4)
+    log (duration(time.perf_counter() - perf) + ' - BoucleSupp(' + radical + ')', 4)
     if root:
-      log ('BoucleSupp(' + radical + ')', 1)
-      log('srclist contains ' + str(len(srclst)) + ' elements', 1)
+      log (duration(time.perf_counter() - perf) + ' - BoucleSupp(' + radical + ')', 1)
+      log(duration(time.perf_counter() - perf) + ' - srclist contains ' + str(len(srclst)) + ' elements', 1)
     if clean:
       srclst = sorted(srclst, key=sortoccurence)
         
@@ -79,29 +80,29 @@ def BoucleSupp(radical='', root=True):
                 or (ext.upper() == '.RM') or (ext.upper() == '.OGM') or (ext.upper() == '.M2TS') or (ext.upper() == '.RMVB'):
                 if not(os.path.exists(foldervideo + radical + file)):
                     if clean:
-                      log('Moved ' + foldervideo + radical + file, 1)
                       found = False
                       for newsrc in srclst:
                         if newsrc[0] == file:
                           found = True
-                          log(' to ' + newsrc[2] + file, 1)
+                          
                           try:
                             shutil.move(folderimg + radical + file, newsrc[2] + file)
+                            log(duration(time.perf_counter() - perf) + ' - Moved ' + foldervideo + radical + file + ' to ' + newsrc[2] + file, 1)
                           except:
-                            log(txtred + 'Error' + txtnocolor + ' moving image folder. Try to remove it.', 1)
+                            log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'Error' + txtnocolor + ' moving image folder ' + foldervideo + radical + file + '. Try to remove it.', 1)
                             shutil.rmtree(folderimg + radical + file)
                       if not(found):
-                        log(txtred + 'Error' + txtnocolor + ' not found. The file was deleted. Removing the image folder.', 1)
+                        log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'Error' + txtnocolor + ' not found ' + file + '. The file was deleted. Removing the image folder.', 1)
                         shutil.rmtree(folderimg + radical + file)
 #                    else:
 #                      log ('Delete because source removed and not clean option: ' + folderimg + radical + file, 0)
 #                      shutil.rmtree(folderimg + radical + file)
                 else:
-                  log('test ' + folderimg + radical + file + '/*.jpg', 2)
+                  log(duration(time.perf_counter() - perf) + ' - test ' + folderimg + radical + file + '/*.jpg', 2)
 #                 log('test ' + glob.escape(folderimg + radical + file + '/*.jpg'), 1)
 #                 log(file[66:68])
                   if not(os.path.exists(folderimg + radical + file + '/img00001.jpg')):
-                      log ('Delete because no .jpg image : ' + folderimg + radical + file, 0)
+                      log (duration(time.perf_counter() - perf) + ' - Delete because no .jpg image : ' + folderimg + radical + file, 0)
                       shutil.rmtree(folderimg + radical + file)                  
             if os.path.isdir(folderimg + radical + file):
                 BoucleSupp(radical + file, False)
@@ -113,9 +114,9 @@ def BoucleCount(folderv='.', folderi='.', level=1):
 
     level = level + 1
     spacer = ''
-    if debug>0: 
+    if debug>1: 
         for i in range(level): spacer=spacer+'  '
-        log(spacer + '[ ' + folderv, 0)
+        log(spacer + '[ ' + folderv, 1)
     if os.path.isdir(folderv):
         if not(os.path.exists(folderi)):
             os.mkdir(folderi, mode=0o777)
@@ -133,25 +134,40 @@ def BoucleCount(folderv='.', folderi='.', level=1):
                 srclst.append([file, folderv, folderi])
             elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT' or ext.upper() == '.TXT~'):
                 log (spacer + '  Not match : ' + folderv + file, 2)
-    if debug>0: 
+                
+    prev = []
+    firstrenamed = False
+    for i in range(len(srclst)):
+      #DEBUG : the prev file must be renamed also to avoid pointing on a bad image
+      if srclst[i][0] == prev[0]:
+        log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced multiples times. Renaming all of them.')
+        log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + srclst[i][1] + str(i) + srclst[i][0])
+        if not(firstrenamed):
+          os.rename(prev[1] + prev[0], prev[1] + str(i-1) + prev[0])
+          firstrenamed = True
+        os.rename(srclst[i][1] + srclst[i][0], srclst[i][1] + str(i) + srclst[i][0])
+      else:
+        firstrenamed = False
+      prev = srclst[i]
+                
+    if debug>1: 
         spacer = ''
         for i in range(level): spacer=spacer+'  '
-        log (spacer + '  ' + folderv + ' count = ' + str(cpttodo) + ' ]', 0)
+        log (spacer + '  ' + folderv + ' count = ' + str(cpttodo) + ' ]', 1)
     level = level - 1
 
 #Generate fingerprint for all images of 1 source file and store them in a file
 def CreateFingerprint(folder=''):
-    perf = time.perf_counter()
     todo = True
     if folder[-1] != "/": folder = folder + "/"
     if not(os.path.isdir(folder)):
-        log('CreateFingerprint cannot run before ffmpeg for ' + folder, 0)
+        log(duration(time.perf_counter() - perf) + ' - CreateFingerprint cannot run before ffmpeg for ' + folder, 0)
         todo = False
 #    if os.path.exists(folder[:-1] + '.run'):
 #        log('CreateFingerprint cannot run until ffmpeg is finished for ' + folder, 0)
 #        todo = False
     else:
-        log('CreateFingerprint : does not exist ' + folder[:-1] + '.run', 4)
+        log(duration(time.perf_counter() - perf) + ' - CreateFingerprint : does not exist ' + folder[:-1] + '.run', 4)
     
     if todo:
         #lock fingerprint    
@@ -166,7 +182,7 @@ def CreateFingerprint(folder=''):
                     for line in f:
                         i = i + 1
                     i = i // 2
-                    log('fingerprint.fp exists with ' + str(i) + ' lines', 2)
+                    log(duration(time.perf_counter() - perf) + ' - fingerprint.fp exists with ' + str(i) + ' lines', 2)
                     for file in os.listdir(folder):
                         if os.path.splitext(file)[1] == '.jpg':
                             i = i-1
@@ -175,7 +191,7 @@ def CreateFingerprint(folder=''):
                     i = -1
                 
                 if i < 0:
-                    log('   --- fingerprint.fp exist but fingerprint.run flag or not enough files so remove fingerprints', 0)
+                    log(duration(time.perf_counter() - perf) + '     --- fingerprint.fp exist but fingerprint.run flag or not enough files so remove fingerprints', 0)
                     if os.path.exists(folder + 'fingerprint.fp'):
                         os.remove(folder + 'fingerprint.fp')
                     todo = True
@@ -202,10 +218,10 @@ def CreateFingerprint(folder=''):
 #                    todo = False
               if not(os.path.exists(folder + 'fingerprint.run')):
                   todo = False
-                  log('   -------------------------------------------------------------------', 0)
-                  log('   --- Concurent run detected !', 0)
-                  log('   --- fingerprint.run flag for ' + folder + ' Skip due to parallel mode ', 0)
-                  log('   -------------------------------------------------------------------', 0)
+                  log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
+                  log(duration(time.perf_counter() - perf) + '     --- Concurent run detected !', 0)
+                  log(duration(time.perf_counter() - perf) + '     --- fingerprint.run flag for ' + folder + ' Skip due to parallel mode ', 0)
+                  log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
               else:
                   with open(folder + 'fingerprint.run') as f:  
                       line = f.readline()
@@ -213,13 +229,13 @@ def CreateFingerprint(folder=''):
                   log (line + ' =? ' + pid, 4)
                   if line != pid:
                       todo = False
-                      log('   -------------------------------------------------------------------', 0)
-                      log('   --- Concurent run detected !', 0)
-                      log('   --- fingerprint.run flag for ' + folder + ' Skip due to parallel mode ', 0)
-                      log('   -------------------------------------------------------------------', 0)
+                      log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
+                      log(duration(time.perf_counter() - perf) + '     --- Concurent run detected !', 0)
+                      log(duration(time.perf_counter() - perf) + '     --- fingerprint.run flag for ' + folder + ' Skip due to parallel mode ', 0)
+                      log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
         
         if todo and not(clean):
-          log ('CreateFingerprint folder=' + folder, 1)
+          log (duration(time.perf_counter() - perf) + ' - CreateFingerprint start for folder ' + folder, 1)
           finput = []
           for file in os.listdir(folder):
               if os.path.splitext(file)[1].upper() == ".JPG":
@@ -235,12 +251,12 @@ def CreateFingerprint(folder=''):
                   fp.write('file=' + fpram[i][1] + '\n')
               fp.close
 
-          log ('CreateFingerprint for ' + folder + ' perf = ' + txtgreen + duration(time.perf_counter() - perf) + txtnocolor, 0)
+          log(duration(time.perf_counter() - perf) + ' - CreateFingerprint done for ' + folder, 0)
           if os.path.exists(folder + 'fingerprint.run'):
               try:
                   os.remove(folder + 'fingerprint.run')
               except:
-                  log(txtred + 'ERROR in CreateFingerprint for ' + txtnocolor + folder, 0)
+                  log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'ERROR in CreateFingerprint for ' + txtnocolor + folder, 0)
 
 def calcfp(elt):
   folder = elt[0]
@@ -291,37 +307,37 @@ def OneFile(folderv, folderi, file):
                 line = line[:-1]
                 log(line,5)
         if len(line) <= 6:
-            log('   --- Param.txt inconsistent : ' + line, 1)
+            log(duration(time.perf_counter() - perf) + '     --- Param.txt inconsistent : ' + line, 1)
             line = 'fps=1/999'
         log('Test fps: ' + line[6:] + ' <= ? ' + str(fpsn), 3)
         if float(line[6:]) <= fpsn:
             todo = False
             log ('   --- ffmpeg done ' + folderi2, 2)
         else:
-            log (folderi2 + ' ffmpeg done but upgrade from ' + line + ' to fps=1/' + str(fpsn), 1)
+            log (duration(time.perf_counter() - perf) + ' - ' + folderi2 + ' ffmpeg done but upgrade from ' + line + ' to fps=1/' + str(fpsn), 1)
     else:
         if clean:
-            log (folderi2 + ' does not exist. To do.', 2)
+            log (duration(time.perf_counter() - perf) + ' - ' + folderi2 + ' does not exist. To do.', 2)
         else:
-            log (folderi2 + ' does not exist. To do.', 1)
+            log (duration(time.perf_counter() - perf) + ' - ' + folderi2 + ' does not exist. To do.', 1)
 
     #Cleanup based on startover mechanism
     if (clean):
 #        log('CLEAN : ' + folderi2 + '/fingerprint.run', 0)
         if os.path.exists(folderi2 + '.run'):
-            log(txtgreen + 'CLEAN due to lock : ' + folderi2 + txtnocolor, 0)
+            log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'CLEAN image due to lock : ' + folderi2 + txtnocolor, 0)
             os.remove(folderi2 + '.run')
             if os.path.exists(folderi2):
                 shutil.rmtree(folderi2)
         if os.path.exists(folderi2):
             if os.path.exists(folderi2 + '/fingerprint.run'):
-                log(txtgreen + 'CLEAN due to fingerprint.run : ' + folderi2 + txtnocolor, 0)
+                log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'CLEAN due to fingerprint.run : ' + folderi2 + txtnocolor, 0)
                 shutil.rmtree(folderi2)
             elif not(os.path.exists(folderi2 + '/fingerprint.fp')):
-                log(txtgreen + 'CLEAN due to fingerprint empty : ' + folderi2 + txtnocolor, 0)
+                log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'CLEAN due to fingerprint empty : ' + folderi2 + txtnocolor, 0)
                 shutil.rmtree(folderi2)
             elif todo:
-                log(txtgreen + 'CLEAN due to parameters: ' + folderi2 + txtnocolor, 0)
+                log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'CLEAN due to parameters: ' + folderi2 + txtnocolor, 0)
                 shutil.rmtree(folderi2)
 #    except:
 #        todo = False
@@ -331,7 +347,7 @@ def OneFile(folderv, folderi, file):
     if todo:
         if not(parallel):
             if os.path.exists(folderi2 + '.run'):
-                log('   --- Exist but .run flag so remove image folder', 0)
+                log(duration(time.perf_counter() - perf) + '     --- Exist but .run flag so remove image folder', 0)
                 if os.path.exists(folderi2): 
                     shutil.rmtree(folderi2)
                 os.remove(folderi2 + '.run')
@@ -342,7 +358,7 @@ def OneFile(folderv, folderi, file):
         if (parallel):
             if os.path.exists(folderi2 + '.run'):
                 todo = False
-                log('   --- .run flag for ' + folderv + file + ' Skip due to parallel mode ', 0)
+                log(duration(time.perf_counter() - perf) + '     --- .run flag for ' + folderv + file + ' Skip due to parallel mode ', 0)
             else:
                 log('set ' + folderi2 + '.run flag',2)
                 f = open(folderi2 + '.run','w')
@@ -355,10 +371,10 @@ def OneFile(folderv, folderi, file):
                 log (line + ' =? ' + pid, 4)
                 if line != pid:
                     todo = False
-                    log('   -------------------------------------------------------------------', 0)
-                    log('   --- Concurent ffmpeg run detected !', 0)
-                    log('   --- .run flag for ' + folderv + file + ' Skip due to parallel mode ', 0)
-                    log('   -------------------------------------------------------------------', 0)
+                    log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
+                    log(duration(time.perf_counter() - perf) + '     --- Concurent ffmpeg run detected !', 0)
+                    log(duration(time.perf_counter() - perf) + '     --- .run flag for ' + folderv + file + ' Skip due to parallel mode ', 0)
+                    log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
                 
     # Execute
     ok = True
@@ -367,7 +383,7 @@ def OneFile(folderv, folderi, file):
             shutil.rmtree(folderi2)
         
         if not(clean):
-            log ('Call ffmpeg with folderi = ' + folderi + ' file = ' + file, 2)
+            log (duration(time.perf_counter() - perf) + ' - Call ffmpeg with folderi = ' + folderi + ' file = ' + file, 2)
 
             if not(os.path.exists(folderi)):
                 os.mkdir(folderi, mode=0o777)
@@ -375,14 +391,14 @@ def OneFile(folderv, folderi, file):
                 os.mkdir(folderi + file + '/', mode=0o777)
 
             #Call ffmpeg
-            log (txtgreen + s + txtnocolor, 0)
-            t = time.time()
+            log (duration(time.perf_counter() - perf) + ' - ' + txtgreen + s + txtnocolor, 0)
+            perf1 = time.time()
             p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True)
             (output, err) = p.communicate()  
             #p_status = p.wait()
-            dur = time.time() - t
             siz = os.path.getsize(fvideo)/1048576
-            log(time.asctime(time.localtime(time.time())) + ' - Duration : ' + duration(dur) + ' for ' + str(round(siz,0)) + ' Mb ' + txtgreen + '@ ' + str(round(siz/dur*0.0864,2)) + ' Tb/day' + txtnocolor, 0)
+            dur = time.time() -perf1
+            log(duration(time.perf_counter() - perf) + ' - Duration : ' + duration(dur, False) + ' for ' + str(round(siz,0)) + ' Mb ' + txtgreen + '@ ' + str(round(siz/dur*0.0864,2)) + ' Tb/day' + txtnocolor, 0)
             
             CreateFingerprint(folderi + file)
             
@@ -405,9 +421,9 @@ def OneFile(folderv, folderi, file):
         
     cptdone = cptdone + 1
     if clean:
-        log(time.asctime(time.localtime(time.time())) + ' : ' + txtgreen + str(cptdone) + ' / ' + str(cpttodo) + ' done ...' + txtnocolor, 1)
+        log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(cptdone) + ' / ' + str(cpttodo) + ' done ...' + txtnocolor, 2)
     else:
-        log(time.asctime(time.localtime(time.time())) + ' : ' + txtgreen + str(cptdone) + ' / ' + str(cpttodo) + ' done ...' + txtnocolor, 0)
+        log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(cptdone) + ' / ' + str(cpttodo) + ' done ...' + txtnocolor, 1)
 
 # Parse a single folder to call OneFile for source video files and BoucleFichier recursively if it'a a subfolder
 def BoucleFichiers(folderv='.', folderi='.', level=1):
@@ -474,6 +490,8 @@ def helpprt():
 print ('')
 #print (str(sys.argv))
 flog = open(logfile,'w')
+perf = time.perf_counter()
+
 if len(sys.argv)<2:
     print('SYNTAX ERROR')
     helpprt

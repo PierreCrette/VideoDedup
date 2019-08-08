@@ -372,9 +372,10 @@ else:
     prev = ''
     for i in range(len(srclst)):
       if srclst[i][0] == prev:
-        log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced 2 times.')
-        log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + srclst[i][1] + str(i) + srclst[i][0])
-        os.rename(srclst[i][1] + srclst[i][0], srclst[i][1] + str(i) + srclst[i][0])
+        log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced 2 times. Launch again 1_analyse.py.')
+        #log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + srclst[i][1] + str(i) + srclst[i][0])
+        #DEBUG : the prev file must be renamed also to avoid pointing on a bad image
+        #os.rename(srclst[i][1] + srclst[i][0], srclst[i][1] + str(i) + srclst[i][0])
       prev = srclst[i][0]
 
     #Step 1: parse fresultset and create memory map
@@ -514,7 +515,7 @@ else:
       #Sort by 1st source then group and count same duplicate sets.
       resultsetvideo = sorted(resultsetvideo, key=sortsources)
      
-      log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' elements.', 0)
+      log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' images dupes.', 0)
       rsv = []
       prev = ['','']
   
@@ -539,7 +540,7 @@ else:
                   previ = tmprs[j]
                   resultsetvideo[i][2].append(previ)
   
-      log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' unique dupes.', 0)
+      log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' sources dupes.', 0)
   
       rsv = sorted(rsv, key=sortoccurence, reverse=True)
       
