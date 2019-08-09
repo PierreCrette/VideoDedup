@@ -9,7 +9,7 @@ Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own l
 
 # Version 2
 
-Version published the 6th of August 2019 is considered as final.
+Version published the 9th of August 2019 is considered as final.
 
 . 1f_parse scan video source folder, replicate with ffmpeg an image folder, then for each image create a fingerprint. 1f_parse can also detect moved source file and move accordingly image folder avoiding calculation.
 
