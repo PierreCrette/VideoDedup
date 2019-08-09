@@ -55,6 +55,29 @@ def duration(d, dat=True):
 def sortoccurence(elem):
     return elem[0]
   
+def SameNames():
+  global srclst
+
+  log('Test of source with same name. First one is ' + srclst[0][0] + '. len(srclst)=' + str(len(srclst)))
+  srclst = sorted(srclst, key=sortoccurence)
+  prev = ['']
+  firstrenamed = False
+  for i in range(len(srclst)):
+    #DEBUG : the prev file must be renamed also to avoid pointing on a bad image
+    if srclst[i][0] == prev[0]:
+      log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced multiples times. Renaming all of them.')
+      log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + srclst[i][1] + str(i) + srclst[i][0])
+      if not(firstrenamed):
+        log(duration(time.perf_counter() - perf) + ' - File ' + prev[1] + prev[0] + ' is referenced multiples times. Renaming all of them.')
+        log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + prev[1] + str(i-1) + prev[0])
+        os.rename(prev[1] + prev[0], prev[1] + str(i-1) + prev[0])
+        firstrenamed = True
+      os.rename(srclst[i][1] + srclst[i][0], srclst[i][1] + str(i) + srclst[i][0])
+    else:
+      firstrenamed = False
+    prev = srclst[i]
+              
+  
 #Step1: remove images with no more source
 def BoucleSupp(radical='', root=True):
     global srclst
@@ -134,21 +157,6 @@ def BoucleCount(folderv='.', folderi='.', level=1):
                 srclst.append([file, folderv, folderi])
             elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT' or ext.upper() == '.TXT~'):
                 log (spacer + '  Not match : ' + folderv + file, 2)
-                
-    prev = []
-    firstrenamed = False
-    for i in range(len(srclst)):
-      #DEBUG : the prev file must be renamed also to avoid pointing on a bad image
-      if srclst[i][0] == prev[0]:
-        log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced multiples times. Renaming all of them.')
-        log(duration(time.perf_counter() - perf) + ' - ... renaming to ' + srclst[i][1] + str(i) + srclst[i][0])
-        if not(firstrenamed):
-          os.rename(prev[1] + prev[0], prev[1] + str(i-1) + prev[0])
-          firstrenamed = True
-        os.rename(srclst[i][1] + srclst[i][0], srclst[i][1] + str(i) + srclst[i][0])
-      else:
-        firstrenamed = False
-      prev = srclst[i]
                 
     if debug>1: 
         spacer = ''
@@ -552,6 +560,7 @@ else:
     BoucleCount(foldervideo, folderimg, level)
 
     if not(parallel):
+        SameNames()
         BoucleSupp('')
     
     #Step 2: Create missing images

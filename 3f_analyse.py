@@ -541,9 +541,13 @@ else:
                   resultsetvideo[i][2].append(previ)
   
       log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' sources dupes.', 0)
-  
+      
       rsv = sorted(rsv, key=sortoccurence, reverse=True)
       
+      #DEBUG
+#      for rsvelt in rsv:
+#          print(rsvelt)
+  
       named= []
       resultsetvideo = []
       log('Check occurence >= ' + str(threshold), 3)
@@ -581,6 +585,9 @@ else:
                   else:
                       if n < threshold:
                           log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 3)
+#DEBUG 2 lignes
+                          if debug > 2:
+                            print(rsv[i])
 #                          for k in range(min(6,len(rsv[i][2]))):
 #                            log(rsv[i][2][k], 3)
                           keep = False
@@ -588,6 +595,8 @@ else:
                       n = 1
               if n < threshold:
                  log('Rejected cause nb images < ' + str(threshold) + ' for one source :', 3)
+                 if debug > 2:
+                   print(rsv[i])
   #               for k in range(len(rsv[i][2])): log(rsv[i][2][k], 2)
                  keep = False
   
@@ -616,7 +625,11 @@ else:
        '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor, 0)
       log('{:_}'.format(rejthr) + ' + {:_}'.format(rejimg) + ' rejections due to common images < {:_}'.format(threshold) + ', {:_}'.format(rejref) + \
           ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
-  
+
+      #DEBUG
+#      for rsvelt in resultsetvideo:
+#          print(rsvelt)
+      
       #Calculate HD distance to limit resultset
       hdcacheimg = []
       hdcachekey = []
@@ -652,7 +665,7 @@ else:
         jump = 100
       
       rsv = []
-      for i in range(0, len(resultsetvideo)):
+      for i in range(len(resultsetvideo)):
           if (time.perf_counter() - perf1) > 10:
             log(duration(time.perf_counter() - perf) + ' - ' + str(i) + '/' + str(len(resultsetvideo)) + ' ' + PathName(resultsetvideo[i][2][0]), 1)
           else:
@@ -665,7 +678,7 @@ else:
           t3 = t3 + perf1 - perf3
   
           hdkey = []
-          for j in range(0, len(resultsetvideo[i][2])):
+          for j in range(len(resultsetvideo[i][2])):
             hdk = -1
             try:
               #print('HC cache already exists for ' + resultsetvideo[i][2][j] + ' ?')
@@ -681,6 +694,8 @@ else:
             if hdk != -1:
               hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
           
+#          print(hdkey)
+          
           perf2 = time.perf_counter()
           t1 = t1 + perf2 - perf1
           hdbest = []
@@ -690,6 +705,8 @@ else:
                   if (hdkey[j][0] != hdkey[k][0]):
   #                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
                       hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
+                  else:
+                      hddupe.append([0, k])
               hddupe = sorted(hddupe, key=sortoccurence)
               # distance, img1, img2
               if (hddupe != []):
@@ -713,6 +730,8 @@ else:
               else:
                   rsv.append(resultsetvideo[i])
               
+#      print(rsv)
+      
       print('')
       log(duration(t1) + ' - T1 = HDkey computation or seek')
       log(duration(t2) + ' - T2 = HDkey comparison')
