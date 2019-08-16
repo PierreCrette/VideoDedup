@@ -702,15 +702,25 @@ else:
           for j in range(0, len(hdkey)):
               hddupe = []
               for k in range(j+1, len(hdkey)):
-                  if (hdkey[j][0] != hdkey[k][0]):
+                  if (hdkey[j][2] != hdkey[k][2]):
   #                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
                       hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
                   else:
+                      if debug > 2:
+                          print('Identic HD keys for (' + str(j) + ',' + str(k) + ') :')
+                          print(hdkey[j])
+                          print(hdkey[k])
                       hddupe.append([0, k])
               hddupe = sorted(hddupe, key=sortoccurence)
               # distance, img1, img2
               if (hddupe != []):
                   hdbest.append([hddupe[0][0], hdkey[j][1], hdkey[hddupe[0][1]][1]])
+                  
+          if debug > 2:
+              print('For resultsetvideo[' + str(i) + '], number of images = ' + str(len(resultsetvideo[i][2])) + ', len(hdbest) = ' + str(len(hdbest)))
+              for k in range(len(hdbest)):
+                print(str(hdbest[k][0]) + ', ', end='', flush=True)
+              print()
                   
           perf3 = time.perf_counter()
           t2 = t2 + perf3 - perf2
