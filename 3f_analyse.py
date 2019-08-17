@@ -302,7 +302,7 @@ flog = open(logfile,'w')
 log('************************************************************************************')
 #read arguments and conform them
 log('Video DeDup : find video duplicates')
-log('Copyright (C) 2018  Pierre Crette')
+log('Copyright (C) 2019  Pierre Crette')
 log('')
 
 print(sys.argv)
@@ -692,7 +692,7 @@ else:
                 hdcachekey.append(hdk)
                 
             if hdk != -1:
-              hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk])
+              hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk, PathName(resultsetvideo[i][2][j])])
           
 #          print(hdkey)
           
@@ -702,15 +702,16 @@ else:
           for j in range(0, len(hdkey)):
               hddupe = []
               for k in range(j+1, len(hdkey)):
-                  if (hdkey[j][2] != hdkey[k][2]):
-  #                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
-                      hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
-                  else:
-                      if debug > 2:
-                          print('Identic HD keys for (' + str(j) + ',' + str(k) + ') :')
-                          print(hdkey[j])
-                          print(hdkey[k])
-                      hddupe.append([0, k])
+                  if hdkey[j][3] != hdkey[k][3]:  # if images j and k refers to different sources
+                      if (hdkey[j][2] != hdkey[k][2]):
+      #                    log('gmpy2.hamdist(' + str(hdkey[j][2]) + ', ' + str(hdkey[k][2]) + ')')
+                          hddupe.append([gmpy2.hamdist(int(hdkey[j][2]),int(hdkey[k][2])), k])
+                      else:
+                          if debug > 2:
+                              print('Identic HD keys for (' + str(j) + ',' + str(k) + ') :')
+                              print(hdkey[j])
+                              print(hdkey[k])
+                          hddupe.append([0, k])
               hddupe = sorted(hddupe, key=sortoccurence)
               # distance, img1, img2
               if (hddupe != []):
@@ -734,12 +735,16 @@ else:
               if j < len(hdbest):
                 s = s + str(hdbest[j][0])
               if (j < threshold):
-                  log('Resultset rejected after HD 57x32 control. Best distances = ' + s, 2)
-                  log(resultsetvideo[i][1][0], 2)
-                  log(resultsetvideo[i][1][1], 2)
+                  log('Resultset rejected after HD 57x32 control. Best distances = ' + s, 3)
+                  log(resultsetvideo[i][1][0], 3)
+                  log(resultsetvideo[i][1][1], 3)
               else:
                   rsv.append(resultsetvideo[i])
-              
+                  log('Resultset keep after HD 57x32 control. Best distances = ' + s, 2)
+                  log(resultsetvideo[i][1][0], 2)
+                  log(resultsetvideo[i][1][1], 2)              
+                  if debug > 2:
+                      print(hdbest)
 #      print(rsv)
       
       print('')
