@@ -58,8 +58,9 @@ def sortoccurence(elem):
 def SameNames():
   global srclst
 
-  log('Test of source with same name. First one is ' + srclst[0][0] + '. len(srclst)=' + str(len(srclst)))
   srclst = sorted(srclst, key=sortoccurence)
+  log (duration(time.perf_counter() - perf) + ' - Test of source with same name. len(srclst)=' + str(len(srclst)))
+  log (duration(time.perf_counter() - perf) + ' - First one is ' + srclst[0][0], 2)
   prev = ['']
   firstrenamed = False
   for i in range(len(srclst)):
@@ -81,13 +82,14 @@ def SameNames():
 #Step1: remove images with no more source
 def BoucleSupp(radical='', root=True):
     global srclst
+    
 
     if radical != "":
         if radical[-1] != "/": radical = radical + "/"
     log (duration(time.perf_counter() - perf) + ' - BoucleSupp(' + radical + ')', 4)
     if root:
-      log (duration(time.perf_counter() - perf) + ' - BoucleSupp(' + radical + ')', 1)
-      log(duration(time.perf_counter() - perf) + ' - srclist contains ' + str(len(srclst)) + ' elements', 1)
+      log (duration(time.perf_counter() - perf) + ' - BoucleSupp(' + radical + ') will move images if source moved or delete it.', 1)
+      log(duration(time.perf_counter() - perf) + ' - srclist contains ' + str(len(srclst)) + ' elements', 4)
     if clean:
       srclst = sorted(srclst, key=sortoccurence)
         
@@ -101,18 +103,25 @@ def BoucleSupp(radical='', root=True):
                 or (ext.upper() == '.VOB') or (ext.upper() == '.MPG') or (ext.upper() == '.MPEG') or (ext.upper() == '.MKV') \
                 or (ext.upper() == '.WMV') or (ext.upper() == '.ASF') or (ext.upper() == '.FLV') \
                 or (ext.upper() == '.RM') or (ext.upper() == '.OGM') or (ext.upper() == '.M2TS') or (ext.upper() == '.RMVB'):
-                if not(os.path.exists(foldervideo + radical + file)):
+                srcfilename = foldervideo + radical +  file
+                if not(os.path.exists(srcfilename)):
                     if clean:
                       found = False
                       for newsrc in srclst:
                         if newsrc[0] == file:
                           found = True
                           
+                          log(duration(time.perf_counter() - perf) + ' - ' + srcfilename + ' was moved.', 3)
+                          mvsrc = folderimg + radical + file + '/'
+                          mvdst = newsrc[2] + file + '/'
+                          log(duration(time.perf_counter() - perf) + ' - Moving ' + mvsrc + ' to ' + mvdst, 0)
                           try:
                             shutil.move(folderimg + radical + file, newsrc[2] + file)
-                            log(duration(time.perf_counter() - perf) + ' - Moved ' + foldervideo + radical + file + ' to ' + newsrc[2] + file, 1)
                           except:
-                            log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'Error' + txtnocolor + ' moving image folder ' + foldervideo + radical + file + '. Try to remove it.', 1)
+                            log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'Error' + txtnocolor + ' when moving image folder. Try to remove ' + folderimg + radical + file, 0)
+                            log(duration(time.perf_counter() - perf) + ' - radical = ' + radical, 2)
+                            log(duration(time.perf_counter() - perf) + ' - file = ' + file, 2)
+                            #halt
                             shutil.rmtree(folderimg + radical + file)
                       if not(found):
                         log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'Error' + txtnocolor + ' not found ' + file + '. The file was deleted. Removing the image folder.', 1)
@@ -189,6 +198,7 @@ def CreateFingerprint(folder=''):
                     i = 0
                     for line in f:
                         i = i + 1
+                    f.close
                     i = i // 2
                     log(duration(time.perf_counter() - perf) + ' - fingerprint.fp exists with ' + str(i) + ' lines', 2)
                     for file in os.listdir(folder):
