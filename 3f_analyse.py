@@ -508,7 +508,7 @@ else:
       log('****************************************', 1)
       log('* STEP 2 : HD COMPARE TO NARROW FILTER *', 1)
       log('****************************************', 1)
-      if worksize > 1000000:
+      if worksize > 100000:
         log(txtgreen + sshell + txtnocolor, 1)
   #    resultsetvideo.append([1, setvideo, setimg, setprt])
   
@@ -649,7 +649,12 @@ else:
         f.close
         if worksize > 100000:
           log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcacheimg)) + ' elements.')
-          
+      else:
+        if foutputhd != '':
+          f = open(foutputhd, 'w')
+          f.close
+
+      f = open(foutputhd, 'a')
       t1 = 0
       t2 = 0
       t3 = 0
@@ -690,6 +695,9 @@ else:
                 hdk = calcfp(imagefile,3)
                 hdcacheimg.append(MidName(imagefile))
                 hdcachekey.append(hdk)
+                # debug : write here
+                f.write('hdkey=' + str(hdk) + '\n')
+                f.write('file=' + MidName(imagefile) + '\n')
                 
             if hdk != -1:
               hdkey.append([source(resultsetvideo[i][2][j]), resultsetvideo[i][2][j], hdk, PathName(resultsetvideo[i][2][j])])
@@ -753,12 +761,12 @@ else:
       log(duration(t3) + ' - T3 = other')
   
       # Store HD distances in a cache file for next run
-      if foutputhd != '':
-        f = open(foutputhd, 'w')
-        for i in range(len(hdcacheimg)):
-            f.write('hdkey=' + str(hdcachekey[i]) + '\n')
-            f.write('file=' + hdcacheimg[i] + '\n')
-        f.close
+#       if foutputhd != '':
+#         f = open(foutputhd, 'w')
+#         for i in range(len(hdcacheimg)):
+#             f.write('hdkey=' + str(hdcachekey[i]) + '\n')
+#             f.write('file=' + hdcacheimg[i] + '\n')
+#         f.close
         
       print('')
       log(duration(time.perf_counter() - perf) + ' - Limit to max HD 57x32 distance done. From {:_}'.format(len(resultsetvideo)) + txtgreen + \
