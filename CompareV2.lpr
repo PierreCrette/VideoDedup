@@ -24,10 +24,11 @@ v2.0 b003 : store done result in
   idxDone: array of array of boolean;
   idxSource: array of TSource;
   and replace searchs by direct acces based on index position
+v2.0 b006 : store rs in memory instead of direct write on disk to improve performance when lot of result founds
 }
 
 const
-  version: string = 'compare v2.0 b005';
+  version: string = 'compare v2.0 b007.003';
 
 Type
   TKey = array[0..3] of Qword;
@@ -76,7 +77,7 @@ var
   idxSource: array of TSource;
 
   folderimg, flogname: string;
-  debug, threshold, copyright, mask, masksize : integer;
+  debug, threshold, copyright, mask, masksize, cptdisplay : integer;
   script, maskmethod: string;
   filecount, imgcount, nbthreads: integer;
   p, param, pid, lbl: string;
@@ -195,7 +196,7 @@ begin
   if kind = 0 then begin// Standard display
     TimeStamp := inttostr(st.year) + '/' + rightstr('0'+inttostr(st.month),2) + '/' + rightstr('0'+inttostr(st.Day),2)
     + ' ' + rightstr('0'+inttostr(st.Hour),2) + ':' + rightstr('0'+inttostr(st.minute),2) + '''' + rightstr('0'+inttostr(st.Second),2) + ' ';
-    if debug > 1 then
+    if debug > 0 then
       TimeStamp := TimeStamp + '(' + DurationToStr(debut, current, 0) + ') ';
   end;
   if kind = 1 then // pid
@@ -390,7 +391,7 @@ begin
     else if (n < filecount) and (idxSource[n+1].filename = filename) then IndexSource := n+1
     else if abs(m - n) < 2 then begin
       IndexSource := 999999999;
-      log('Not found "' + filename + '"', 3);
+      log('Not found in Index (n=' + inttostr(n) + ') "' + filename + '"', 3);
       //log('filecount=' + inttostr(filecount) + ', min-max=' + inttostr(min) + '-' + inttostr(max), 2);
       //if (n>0) then log('  Closest #' + inttostr(n-1) + ' "' + idxSource[n-1].filename +'"', 2);
       //if (n<filecount) then log('  Closest #' + inttostr(n+1) + ' "' + idxSource[n+1].filename +'"', 2);
@@ -400,6 +401,7 @@ begin
 end;
 
 procedure RecurseScan(fold: string; var filecount: integer);
+// Read *.fp in folder and store their content in memory : sources and image/key pairs
 var
   fullname, skey, simg: string;
   result: TRawByteSearchRec;
@@ -412,8 +414,11 @@ begin
   if fold[length(fold)]='/' then fold := leftstr(fold,length(fold)-1);
   if fold <> folderimg + 'unwanted' then begin
     Log('Load fingerprints from ' + fold, 4);
-    if (filecount mod 1000 = 0) and (filecount > 0) then
-      log('Loaded ' + inttostr(filecount) + ' images folders...', 1);
+    if (filecount = cptdisplay) then begin
+      if cptdisplay > 0 then
+        log('Loaded ' + inttostr(filecount) + ' images folders...', 1);
+      cptdisplay := cptdisplay + 1000;
+    end;
     if FindFirst(fold + '/*', faAnyFile and faDirectory, result)=0 then begin
       repeat
         if (result.Name <> '.') and (result.Name <> '..') then
@@ -588,6 +593,10 @@ begin
             idxDone[i][j] := True;
           end else begin
             inc(notfound);
+            if i=999999999 then
+              log('-- Not found but in ' + result.Name + ' : ' + lstr, 2)
+            else
+              log('-- Not found but in ' + result.Name + ' : ' + lstr, 2)
           end;
 
           if ((nb + notfound) mod 10000000 = 0) then
@@ -653,7 +662,7 @@ var
   beginleft, endleft : TDateTime;
   durms: Comp;
   f: Textfile;
-  line: string;
+  line, txtrs: string;
 
 begin
   beginleft := Now;
@@ -670,6 +679,8 @@ begin
   log(locscript2 + 'Begin Thread #' + inttostr(FAthreadnb) + ' ' + FAcomment + ' with count = ' + inttostr(FARight.count) + ', imcount = ' + inttostr(FARight.imcount)
   + ', for ' + inttostr(idxSource[FALeft].imgcount) + ' left images.', 2);
 
+  //open & close file cannot be outside the loop because killing the program will let results not written to disk
+  txtrs := '';
   for cpt := 1 to FARight.count do begin
     pti    := idxSource[FAleft].firstimage;
     repeat
@@ -679,21 +690,25 @@ begin
         iright := ptiright^;
         r    := distanceham(ileft.key, iright.key);
         if r < threshold then begin
-          assignfile(frs, locscript + '.rs');
-          append(frs);
-          writeln(frs,'BEGIN. Similarity=' + inttostr(r));
-          writeln(frs,'file=' + ileft.img);
-          writeln(frs,'key=' + ileft.skey);
-          writeln(frs,'file=' + iright.img);
-          writeln(frs,'key=' + iright.skey);
-          writeln(frs,'END');
-          close(frs);
+          //log(locscript2 + '--- found a similarity', 4);
+          txtrs   := txtrs + 'BEGIN. Similarity=' + inttostr(r) + LineEnding;
+          txtrs   := txtrs + 'file=' + ileft.img + LineEnding;
+          txtrs   := txtrs + 'key=' + ileft.skey + LineEnding;
+          txtrs   := txtrs + 'file=' + iright.img + LineEnding;
+          txtrs   := txtrs + 'key=' + iright.skey + LineEnding;
+          txtrs   := txtrs + 'END' + LineEnding;
         end;
         ptiright := iright.next;
       until (ptiright = nil);
       pti := ileft.next;
     until (pti = nil);
   end;
+  log(locscript2 + '--- write resultset to disk', 4);
+  assignfile(frs, locscript + '.rs');
+  append(frs);
+  //log(txtrs, 1);
+  write(frs,txtrs);
+  close(frs);
 
   CreateFile(folderimg + lbl + '.' + pid + inttostr(FAthreadnb) + '.db');
   assignfile(f, folderimg + lbl + '.' + pid + inttostr(FAthreadnb) + '.db');
@@ -813,7 +828,7 @@ begin
 
       if (lockctrl = 'ok') and FileExists(prevlockfile + '.run') then begin
         try
-          log('Finished. Rename ' + prevlockfile + '.run to .done.', 2);
+          log('Finished. Renaming ' + prevlockfile + '.run to .done.', 2);
           if FileExists(prevlockfile + '.done') then begin
             DeleteFile(prevlockfile + '.done');
             sleep(100);
@@ -829,7 +844,20 @@ begin
     end;
     log('1 left source in ' + DurationToStr(t1, Now, 1), 3);
   end;
+  // Main program finished: no more data to process
   ThreadWait;
+  if (lockctrl = 'ok') and FileExists(prevlockfile + '.run') then begin
+    try
+      log('Finished. Renaming ' + prevlockfile + '.run to .done.', 2);
+      if FileExists(prevlockfile + '.done') then begin
+        DeleteFile(prevlockfile + '.done');
+        sleep(100);
+      end;
+      RenameFile(prevlockfile + '.run', prevlockfile + '.done');
+    except
+      log('Cannot rename ' + prevlockfile + '.run to *.done', 1);
+    end;
+  end;
 end;
 
 procedure DoneToDB;
@@ -915,7 +943,6 @@ begin
   log('', copyright);
   log('SYNTAX: 2compare folderimg [options]', copyright);
   log('-v=n         Verbose mode. Default 1', copyright);
-  log('-log=filenam Log file.', copyright);
   log('-s=file      Script to log result founds.', copyright);
   log('-lbl=label   Label to identify runs with different parameters. Use the same on all sessions/computers to share workload. No special characters since its use for file naming.', copyright);
   log('-t=n         Threshold for similarity comparison. Default 10. Performance impact.', copyright);
@@ -925,7 +952,7 @@ begin
   //log('-mask=n      To limit the comparison to some images files for each source file. 1/n images are used. Performance impact.', copyright);
   //log('-masksize=n  Read n images per source then skip (mask-1)*n images', copyright);
   //log('-maskmethod= cycle: read n images per source then skip (mask-1)*masksize images, random: if random read masksize images else skip maxsize images.', copyright);
-  log('-log=file  Log file', copyright);
+  log('-log=file    Log file', copyright);
   log('', copyright);
   log('Display sample:', copyright);
   log('[  3] Source 3 / 462 done. 1518 M comparison in 2''54". Thread perf = 8710 K comp/sec. 1860 images @ 10.68 i/s', copyright);
@@ -1060,6 +1087,8 @@ begin
   imgcount  := 0;
   firstsource := nil;
   t := Now;
+
+  // Read all *.fp and store their content in memory : sources and image/key pairs
   RecurseScan(folderimg, filecount);
   log('RecurseScan done in ' + DurationToStr(t, Now, 1), 1);
   InitIdx;
