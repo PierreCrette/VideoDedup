@@ -1,7 +1,7 @@
 # VIDEO DeDup
 
 Find duplicate videos by content.
-Parse a video directory to create one image every 60sec with ffmpeg, then identify duplicate images with findimagedupes and ease the result analysis.
+Parse a video directory to create one image every n seconds, then identify duplicate images and show possible video duplicates for manual analysis.
 
 Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own licences.
 
@@ -15,7 +15,7 @@ Version published the 9th of August 2019 is considered as final.
 
 . compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name. Since 201906 in free Pascal for x3 speed and less memory usage in multi-threading.
 
-. 3f_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
+. 3h_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
 
 . To finalise you'll have to look at analysed folder to make your decisions. I'll suggest then to use a binary duplicate folder to ease real deletion.
 
@@ -97,9 +97,11 @@ Program who scan duplicates, remove some false duplicates (same image 2 times in
 
 -tu=3          similarity of images vs unwanted to declare as unwanted.
 
--maxdiff=8     restrict results of CompareV2 on similarity < maxdiff. Less or equal to -t parameter of CompareV2.
+-maxdiff=8     restrict results of CompareV2 on similarity < maxdiff. Less or equal to -t parameter of CompareV2. Choose a value around 8 for best results.
 
--hdmaxdiff=50  recalculate high def 57x32 similarity to filter final resultset < hdmaxdiff. Choose a value around 8 x maxdiff.
+-hdmaxdiff=50  recalculate high def 57x32 similarity to filter final resultset < hdmaxdiff. Choose a value around 100 for best results.
+
+-skiphd        skip the long HD key calculation. Use -maxdiff around 5 to avoid too much false positives.
 
 -out=file      output a new findimagedupesresult file without unwanted images to speed up next runs. You will have to archive unwanted  content also since they are no more in new resultset file.
 
@@ -111,13 +113,13 @@ Program who scan duplicates, remove some false duplicates (same image 2 times in
 
 Examples :
 
-1st run to clean up the resultset file, erase already known unwanted images and sets, remove results on deleted source files : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=10 -out=resultset.v1 -fake
+1st run to clean up the resultset file, erase already known unwanted images and remove results on deleted source files : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=10 -out=resultset.v1 -fake
 
-2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives) : ./3f_analyse.py foldersrc folderimg resultset -t=15 -tu=3 -maxdiff=4 -hdmaxdiff=60 
+2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives) : ./3h_analyse.py foldersrc folderimg resultset -t=15 -tu=7 -maxdiff=4 -hdmaxdiff=100 
 
-3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 
+3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=8 -hdmaxdiff=100 
 
-Last run to deal with remaining data (mostly false positive) : ./3f_analyse.py foldersrc folderimg resultset -t=5 -tu=3 -maxdiff=8 -hdmaxdiff=60 -ctrlref=False
+Last run to deal with remaining data (3 or more videos similars) : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=8 -hdmaxdiff=100 -ctrlref=False
     
 
 # HOW TO
@@ -154,15 +156,15 @@ Copy the nb_match*.txt from /db/ana-not-saved to /db/unwanted. The 3f_analyse wi
 
 ## Speed up 1f_parse
 
-Run it with -p on multiple computers connected to a SAN. Use a less agressive fps (4 is twice faster than 2).
+Run it with -p on multiple computers connected to a SAN. Use a less agressive fps (4 is twice faster than 2 and will be 4 times faster for CompareV2 step).
 
-## Speed up 2f_compare
+## Speed up CompareV2
 
 Limit accepted difference between images. -t=10 is correct, -t=8 is faster, -t=5 will miss duplicates.
 
-## Speed up 3f_analyse
+## Speed up 3h_analyse
 
-First run will be long, so create a limited resultset for next ones. Put unwanted images in unwanted folder and then use -out option and -fake with a permissive -maxdiff equal to -t of 2f_compare. The result will be an out file purged of unwanted images so you can empty unwanted folder to speed things.
+First run will be long, so create a limited resultset for next ones. Put unwanted images in unwanted folder and then use -out option and -fake with a permissive -maxdiff equal to -t of CompareV2. The result will be an out file purged of unwanted images so you can empty unwanted folder to speed things.
 
 HD comparison is long but computed HDfingerprints are store in a cache. The -hdmaxdiff have no impact on this but -maxdiff have. So run a first HD computation with a small -maxdiff (e.g. 4) to find unwanted images and then limit subsequent searchs.
 
@@ -173,7 +175,7 @@ HD comparison is long but computed HDfingerprints are store in a cache. The -hdm
 The 1parse and compare have a recover procedure based on .run files /db/folder/video.run. It will redo incomplete videos or changed in fps parameter.
 Between 2 runs (be sure no computer is still working), you can clean up the .run flags : find /folderimg/db -name *.run -exec rm {} \;
 
-To go deeper you can modify python programs :
+To go deeper you can modify python and pascal programs :
 1parse.py contains the list of video formats to select. You can add more.
 Also .jpg and .txt are removed from 'not match' error. Add your owns.
 
