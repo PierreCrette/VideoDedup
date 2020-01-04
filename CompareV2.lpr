@@ -28,7 +28,7 @@ v2.0 b006 : store rs in memory instead of direct write on disk to improve perfor
 }
 
 const
-  version: string = 'compare v2.0 b007.003';
+  version: string = 'compare v2.0 b007.004';
 
 Type
   TKey = array[0..3] of Qword;
@@ -70,8 +70,8 @@ Type
   end;
 
 var
-  Threads: array[1..8] of TMyThread;  // Modify here to increase multi-threading limit
-  Threadstatus: array[1..8] of integer; // and here. 0=free, 1= running, 2=writing
+  Threads: array[1..64] of TMyThread;  // Modify here to increase multi-threading limit
+  Threadstatus: array[1..64] of integer; // and here. 0=free, 1= running, 2=writing
 
   idxDone: array of array of boolean;
   idxSource: array of TSource;
@@ -347,12 +347,24 @@ end;
 procedure InitIdx;
 var
   i, j: integer;
-  ps: pSource;
+  ps, prev: pSource;
   t: TDateTime;
 begin
   t := Now;
   setLength(idxSource, filecount);
   setLength(idxDone, filecount, filecount);
+  //Clean if duplicate filename
+  ps   := firstsource;
+  while ps <> nil do begin
+    if (ps^.next <> nil) and (ps^.filename = ps^.next^.filename) then begin
+      log('InitIdx: ERROR 2 files with same name. One is discarded. Relaunch 1f_Parse.py -clean to solve.' + ps^.filename + ' and ' + ps^.next^.filename, 0);
+      ps^.next := ps^.next^.next;
+      dec(filecount);
+    end;
+    ps := ps^.next
+  end;
+
+  //Populate idxDone as a square matrix of done/todo video pairs
   ps := firstsource;
   for i:=0 to filecount-1 do begin
     if ps <> nil then begin
@@ -370,9 +382,9 @@ begin
   log('InitIdx done in ' + DurationToStr(t, Now, 1), 1);
 end;
 
-function IndexSource(filename: string): integer;
+function SeekIdxSource(InFilename: string): integer;
 var
-  m, n, min, max: integer;
+  m, n, min, max, IndexSource: integer;
 begin
   IndexSource := -1;
   min := 0;
@@ -382,22 +394,22 @@ begin
     m := n;
     n := (min + max) div 2;
 
-    if idxSource[n].filename > filename then max := n
+    if idxSource[n].filename > InFilename then max := n
     else min := n;
 
-    if idxSource[n].filename = filename then IndexSource := n
-    else if (n > 0) and (idxSource[n-1].filename = filename) then IndexSource := n-1
-    // debug : filecount or filecount-1 ?
-    else if (n < filecount) and (idxSource[n+1].filename = filename) then IndexSource := n+1
+    if idxSource[n].filename = InFilename then IndexSource := n
+    else if (n > 0) and (idxSource[n-1].filename = InFilename) then IndexSource := n-1
+    else if (n < filecount) and (idxSource[n+1].filename = InFilename) then IndexSource := n+1
     else if abs(m - n) < 2 then begin
       IndexSource := 999999999;
-      log('Not found in Index (n=' + inttostr(n) + ') "' + filename + '"', 3);
+      log('SeekIdxSource: Not found in Index (n=' + inttostr(n) + ') "' + InFilename + '"', 3);
       //log('filecount=' + inttostr(filecount) + ', min-max=' + inttostr(min) + '-' + inttostr(max), 2);
       //if (n>0) then log('  Closest #' + inttostr(n-1) + ' "' + idxSource[n-1].filename +'"', 2);
       //if (n<filecount) then log('  Closest #' + inttostr(n+1) + ' "' + idxSource[n+1].filename +'"', 2);
     end;
 
   until IndexSource > -1;
+  SeekIdxSource := IndexSource;
 end;
 
 procedure RecurseScan(fold: string; var filecount: integer);
@@ -585,18 +597,19 @@ begin
           lstr := leftstr(line, delim - 2);
           rstr := rightstr(line, length(line) - delim - 1);
 
-          i := IndexSource(lstr);
-          j := IndexSource(rstr);
+          i := SeekIdxSource(lstr);
+          j := SeekIdxSource(rstr);
 
           if (i <> 999999999) and (j <> 999999999) then begin
             inc(nb);
             idxDone[i][j] := True;
+
           end else begin
             inc(notfound);
             if i=999999999 then
               log('-- Not found but in ' + result.Name + ' : ' + lstr, 2)
             else
-              log('-- Not found but in ' + result.Name + ' : ' + lstr, 2)
+              log('-- Not found but in ' + result.Name + ' : ' + rstr, 2)
           end;
 
           if ((nb + notfound) mod 10000000 = 0) then
