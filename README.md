@@ -85,13 +85,15 @@ Parse the image folder to load fingerprint.fp files in memory and then compare a
 
 
 
-# 3g_analyse.py
+# 3i_analyse.py
 
 Program who scan duplicates, remove some false duplicates (same image 2 times in the same video file), group duplicates (for duplicate 1 hour video 60 duplicates will be found), and copy duplicates in the /img/ana-not-saved analyse folder.
 
 3f_analyse foldersrc folderimg resultset [options]
 
 -v=2           verbosity
+
+-thread=2      number of threads to compute HD keys
 
 -t=5           minimum number of similar images to declare a pair of video sources as duplicate.
 
