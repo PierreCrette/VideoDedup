@@ -3,7 +3,7 @@
 import sys
 import os
 import subprocess
-#import fnmatch
+import fnmatch
 import shutil
 #import glob
 #from os.path import join, getsize
@@ -24,6 +24,7 @@ cpttodo = 0
 cptdone = 0
 level = 0
 fpsn=60.0
+MinJpgCount=10
 parallel = False
 clean = False
 moved = True
@@ -162,6 +163,13 @@ def BoucleCount(folderv='.', folderi='.', level=1):
                 or (ext.upper() == '.VOB') or (ext.upper() == '.MPG') or (ext.upper() == '.MPEG') or (ext.upper() == '.MKV') \
                 or (ext.upper() == '.WMV') or (ext.upper() == '.ASF') or (ext.upper() == '.FLV') \
                 or (ext.upper() == '.RM') or (ext.upper() == '.OGM') or (ext.upper() == '.M2TS') or (ext.upper() == '.RMVB'):
+                nameerror = False
+                for c in file:
+                  if (c in [';']):
+                    nameerror = True;
+                if nameerror:
+                  log('ERROR in naming convention for ' + file, 0)
+                  sys.exit(1)
                 cpttodo = cpttodo + 1
                 srclst.append([file, folderv, folderi])
             elif not(ext.upper() == '.JPG' or ext.upper() == '.TXT' or ext.upper() == '.TXT~'):
@@ -179,6 +187,10 @@ def CreateFingerprint(folder=''):
     if folder[-1] != "/": folder = folder + "/"
     if not(os.path.isdir(folder)):
         log(duration(time.perf_counter() - perf) + ' - CreateFingerprint cannot run before ffmpeg for ' + folder, 0)
+        todo = False
+    if len(fnmatch.filter(os.listdir(folder), '*.jpg')) < MinJpgCount:
+        log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'ERROR: '  + txtnocolor + folder + ' contains not enough JPG. Removing it.', 0)
+        shutil.rmtree(folder)
         todo = False
 #    if os.path.exists(folder[:-1] + '.run'):
 #        log('CreateFingerprint cannot run until ffmpeg is finished for ' + folder, 0)
@@ -306,10 +318,23 @@ def OneFile(folderv, folderi, file):
     fimg = folderi + file + '/img%05d.jpg'
     log ('OneFile(' + folderv +', ' + folderi + ', ' + file + ')', 2)
     
+    #debug: works if shell=true. But security issue with shell=true in popen.
     if debug>1:
       s = 'ffmpeg -i "' + fvideo + '" -vf fps=1/' + str(fpsn * (0.9 + random.random()/4)) + ' "' + fimg + '"'
     else:
       s = 'ffmpeg -loglevel fatal -i "' + fvideo + '" -vf fps=1/' + str(fpsn * (0.9 + random.random()/4)) + ' "' + fimg + '"'
+
+    #debug: if shell=false
+    args=[]
+    args.append('ffmpeg')
+    if debug < 2:
+      args.append('-loglevel')
+      args.append('fatal')
+    args.append('-i')
+    args.append(fvideo)
+    args.append('-vf')
+    args.append('fps=1/' + str(fpsn * (0.9 + random.random()/4)))
+    args.append(fimg)
     
     folderi2 = folderi + file
     log (folderi2, 3)
@@ -329,8 +354,12 @@ def OneFile(folderv, folderi, file):
             line = 'fps=1/999'
         log('Test fps: ' + line[6:] + ' <= ? ' + str(fpsn), 3)
         if float(line[6:]) <= fpsn:
-            todo = False
-            log ('   --- ffmpeg done ' + folderi2, 2)
+            if len(fnmatch.filter(os.listdir(folderi2), '*.jpg')) < MinJpgCount:
+                log(duration(time.perf_counter() - perf) + ' - ' + txtred + 'ERROR: ' + folderi2 + ' contains not enough JPG. Removing it.' + txtnocolor, 0)
+                shutil.rmtree(folderi2)
+            else:
+                todo = False
+                log ('   --- ffmpeg done ' + folderi2, 2)
         else:
             log (duration(time.perf_counter() - perf) + ' - ' + folderi2 + ' ffmpeg done but upgrade from ' + line + ' to fps=1/' + str(fpsn), 1)
     else:
@@ -395,7 +424,6 @@ def OneFile(folderv, folderi, file):
                     log(duration(time.perf_counter() - perf) + '     -------------------------------------------------------------------', 0)
                 
     # Execute
-    ok = True
     if todo :
         if os.path.exists(folderi2):
             shutil.rmtree(folderi2)
@@ -411,9 +439,11 @@ def OneFile(folderv, folderi, file):
             #Call ffmpeg
             log (duration(time.perf_counter() - perf) + ' - ' + txtgreen + s + txtnocolor, 0)
             perf1 = time.time()
-            p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True)
+            #p=subprocess.Popen(s, stdout=subprocess.PIPE, shell=True, close_fds=True)
+            p=subprocess.Popen(args, stdout=subprocess.PIPE, close_fds=True)
+            p.wait()
             (output, err) = p.communicate()  
-            #p_status = p.wait()
+            #p.stdout.close()
             siz = os.path.getsize(fvideo)/1048576
             dur = time.time() -perf1
             log(duration(time.perf_counter() - perf) + ' - Duration : ' + duration(dur, False) + ' for ' + str(round(siz,0)) + ' Mb ' + txtgreen + '@ ' + str(round(siz/dur*0.0864,2)) + ' Tb/day' + txtnocolor, 0)
@@ -421,22 +451,13 @@ def OneFile(folderv, folderi, file):
             CreateFingerprint(folderi + file)
             
             #Create a file to store parameters
-            f = open(folderi2 + '/param.txt','w')
-            f.write('fps=1/' + str(fpsn) + '\n')
-            f.close
+            if os.path.exists(folderi2):
+                f = open(folderi2 + '/param.txt','w')
+                f.write('fps=1/' + str(fpsn) + '\n')
+                f.close
                     
-        if ok:
-            os.remove(folderi2 + '.run')
+        os.remove(folderi2 + '.run')
 
-#        except:
-#            log('******************************************************************', 0)
-#            log(txtred + 'ERROR: Try again later ' + folderi2 + txtnocolor, 0)
-#            log('******************************************************************', 0)
-#            log('', 0)
-#            log('', 0)
-#            log('', 0)
-#            ok = False
-        
     cptdone = cptdone + 1
     if clean:
         log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(cptdone) + ' / ' + str(cpttodo) + ' done ...' + txtnocolor, 2)
