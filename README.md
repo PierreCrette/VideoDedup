@@ -3,19 +3,19 @@
 Find duplicate videos by content.
 Parse a video directory to create one image every n seconds, then identify duplicate images and show possible video duplicates for manual analysis.
 
-Licenced under GPL-3.0 except for ffmpeg and findimagedupes who have their own licences.
+Licenced under GPL-3.0 except for ffmpeg and Imagemagick who have their own licences.
 
 
 
 # Version 2
 
-Version published the 9th of August 2019 is considered as final.
+Version published the 9th of August 2019 is considered as final. Regular updates since for performance improvement, better results and some bugs.
 
 . 1f_parse scan video source folder, replicate with ffmpeg an image folder, then for each image create a fingerprint. 1f_parse can also detect moved source file and move accordingly image folder avoiding calculation.
 
-. compare perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name. Since 201906 in free Pascal for x3 speed and less memory usage in multi-threading.
+. CompareV2 perform the fingerprints comparison and works in memory with constant memory usage. It is folder agnostic and parse fingerprints ordered by source file name. Since 201906 in free Pascal for x3 speed and less memory usage in multi-threading.
 
-. 3h_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
+. 3j_analyse is folder agnostic by first loading in memory current source and image folder. Then a lot of options and cache mechanism enable to get correct performance analysis. At the end all duplicates are copied in an analysed folder without doing anything on source or image folders.
 
 . To finalise you'll have to look at analysed folder to make your decisions. I'll suggest then to use a binary duplicate folder to ease real deletion.
 
@@ -23,17 +23,15 @@ Version published the 9th of August 2019 is considered as final.
 
 # Prerequisites
 
-ffmpeg must be installed on your computer.
-python3 must be installed on your computer.
+ffmpeg, imagemagick and python3 must be installed on your computer.
 
-They are both included in Ubuntu distro (sudo apt-get install ffmpeg)
-
+They are all included in Ubuntu distro (sudo apt-get install ffmpeg)
 
 You have a /video folder.
 You want to work in a /img folder.
 
 This /img folder will include a /img/db to replicate /video structure and store jpeg images.
-This /img folder will alse include a /img/ana-not-saved to copy duplicate files for analysis.
+This /img folder will alse include a /img/ana-not-saved to copy duplicate files for analysis (remove it from your backup plan).
 And also an /img/unwanted to remove imgages and pairs of videos from subsequent searchs.
 
 Due to the duration of each steps (1 To takes about 1 day) you are encouraged to have multiples run on different computers connected to the same NAS. Also you may use different parameters.
@@ -42,7 +40,7 @@ Due to the duration of each steps (1 To takes about 1 day) you are encouraged to
 
 # 1f_parse.py
 
-Python program that will scan your video files and create for each file a folder image. In this image folder python calls ffmpeg to create 1 jpeg image every n seconds then it calculate fingerprint of each image (max 16x16 pixels = 256 bits, often 16x9) and store them in a file fingerprint.fp. See findimagedupes for algorythm.
+Python program that will scan your video files and create for each file a folder image. In this image folder python calls ffmpeg to create 1 jpeg image every n seconds then it calculate fingerprint of each image (max 16x16 pixels = 256 bits, often 16x9) and store them in a file fingerprint.fp. See findimagedupes documentation for algorythm since I copied it.
 
 1parse.py foldersrc folderimg [options]
 
@@ -58,15 +56,13 @@ folderimg = where your images will be created. MUST include the /db/ path (see a
 
 -c     Clean previous runs. To launch after a bunch a parallel run. Exclusive of -p.
 
--moved If source file moved will move the image folder. Without -moved previous folder would be erased and then new one created and it's long.
-
 
 
 # CompareV2
 
 Parse the image folder to load fingerprint.fp files in memory and then compare all and store set of duplicates.
 
-2f_compare folderimg [options]
+CompareV2 folderimg [options]
 
 -v=2         Verbose mode. Default 1
 
@@ -76,7 +72,7 @@ Parse the image folder to load fingerprint.fp files in memory and then compare a
 
 -t=n         Threshold for similarity comparison. Default 10. Huge performance impact. 8 or 10 seems correct.
 
--threads=n   Number of threads to use. Make tests to find better option for your computer. Performance impact.
+-threads=n   Number of threads to use. Number of threads of your computer - 1 is fine. Performance impact without RAM usage.
 
 -clean       Read all DB files, remove references to old files, remove duplicates, store all in 1 file.
 
@@ -85,43 +81,65 @@ Parse the image folder to load fingerprint.fp files in memory and then compare a
 
 
 
-# 3i_analyse.py
+# 3j_analyse.py
 
-Program who scan duplicates, remove some false duplicates (same image 2 times in the same video file), group duplicates (for duplicate 1 hour video 60 duplicates will be found), and copy duplicates in the /img/ana-not-saved analyse folder.
+Program who scan duplicates, remove some false duplicates (same image 2 times in the same video file), group duplicates by video pairs, and copy duplicates in the /img/ana-not-saved analyse folder.
 
-3f_analyse foldersrc folderimg resultset [options]
 
--v=2           verbosity
+1f_analyse -c followed by 1f_analyse -p is a good practice.
 
--thread=2      number of threads to compute HD keys
 
--t=5           minimum number of similar images to declare a pair of video sources as duplicate.
+SYNTAX : 3analyse foldersrc folderimg findimagedupesresult [options]
 
--tu=3          similarity of images vs unwanted to declare as unwanted.
+-v=n           verbosity. Default=1
 
--maxdiff=8     restrict results of CompareV2 on similarity < maxdiff. Less or equal to -t parameter of CompareV2. Choose a value around 8 for best results.
+-threads=n     number of threads to use. Huge RAM usage. Default=2
 
--hdmaxdiff=50  recalculate high def 57x32 similarity to filter final resultset < hdmaxdiff. Choose a value around 100 for best results.
+-t=n           minimum number of similar images to declare a pair of source as duplicate.
 
--skiphd        skip the long HD key calculation. Use -maxdiff around 5 to avoid too much false positives.
+-tu=n          similarity of images vs unwanted to declare as unwanted.
 
--out=file      output a new findimagedupesresult file without unwanted images to speed up next runs. You will have to archive unwanted  content also since they are no more in new resultset file.
+-maxdiff=n     restrict results of findimagedupesresult on similarity < maxdiff
 
--outhd=file    file used for caching file that keep HDdistance between 2 images. Default value is hddb.fp
+-hdq=n         with n=2 fast 28x16, 3 (previous default) 50x40 little crop, 4 84x51 more crop, 5 84x51x3 colors (default)
+                 5 is suggested because there is far less false positives. The CPU impact is mitigated by multithreading.
 
--ctrlref=False Will accept multiple occurence of a source in different sets. Risk of manual erasing both elements. Performance and storage hit. Default=True. Use False after 90% duplicate erasing by first few runs.
+-hdmaxdiff=n   recalculate high def 50x40 similarity keys to filter final resultset.
+                 Optimum range to test are : for hdq=1: 5-10, hdq=2: 15-30, hdq=3: 80-120, hdq=4: 150-300, hdq=5: 500-1500
 
--fake          Will not copy source and image files in analyse folder. Usefull at beginning to feed caches, to generate clean (-out) file and to avoid HD calculation with open parameters.
+-skiphd        avoid the 2nd control of HD keys. Faster but more false positives.
+
+-out=file      output a new findimagedupesresult file without unwanted images to speed up next runs.
+
+-tmp=file      to change from default /tmp.
+
+-outhd=file    cache file that keep HDdistance between 2 images.
+
+-ctrlref=False Will accept multiple occurence of a source in different sets. Risk of erasing both elements. Performance and storage hit.
+
+-fake          Will not copy source and image files in analyse folder.
+
+-uwfp          Stop after refreshing fingerprint cache of unwanted images.
+
+
+Other usage to check individual images and challenge the HD algorithm :
+
+-img=file      Source image to test. Temp image will be keep in /tmp folder.
+
+usage :
+
+3j_analyse -img=./images/video1.mp4/img0001.jpg -img=./images/video2.mp4/img0009.jpg
+
 
 Examples :
 
 1st run to clean up the resultset file, erase already known unwanted images and remove results on deleted source files : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=10 -out=resultset.v1 -fake
 
-2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives) : ./3h_analyse.py foldersrc folderimg resultset -t=15 -tu=7 -maxdiff=4 -hdmaxdiff=100 
+2nd run to fill HD cache with main resultsets and to remove some duplicates (few false positives) : ./3h_analyse.py foldersrc folderimg resultset -t=15 -tu=7 -maxdiff=4 -hdmaxdiff=700 
 
-3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=8 -hdmaxdiff=100 
+3rd run to fill HD cache with other resultsets and to remove some duplicates (more false positives). Decrease -t and increase -maxdiff by small increment if your resultset is important : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=8 -hdmaxdiff=1000 
 
-Last run to deal with remaining data (3 or more videos similars) : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=8 -hdmaxdiff=100 -ctrlref=False
+Last run to deal with remaining data : ./3h_analyse.py foldersrc folderimg resultset -t=5 -tu=7 -maxdiff=10 -hdmaxdiff=1500 -ctrlref=False
     
 
 # HOW TO
@@ -132,11 +150,13 @@ The parse/ffmpeg are long (1 Tb = 1 day) so do it by subfolder. Also you can cal
 
 ## Initial run
 
-Average precision : 1f_parse -f=60; CompareV2 -t=8; 3f_analyse -t=3 -maxdiff=8 -hdmaxdiff=60
+Average precision : 1f_parse -f=60; CompareV2 -t=8; 3f_analyse -t=3 -maxdiff=8 -hdmaxdiff=700
 
-Good precision. Will last multiple days running on multiple computers : 1f_parse -f=10; CompareV2 -t=9; 3f_analyse -t=4 -maxdiff=8 -hdmaxdiff=60
+Good precision. Will last multiple days running on multiple computers : 1f_parse -f=10; CompareV2 -t=9; 3f_analyse -t=4 -maxdiff=9 -hdmaxdiff=1000
 
-Very good precision. Very long : 1f_parse -f=2; CompareV2 -t=10; 3f_analyse -t=5 -maxdiff=8 -hdmaxdiff=60
+Very good precision. Very long : 1f_parse -f=2; CompareV2 -t=10; 3f_analyse -t=5 -maxdiff=10 -hdmaxdiff=1000
+
+Insane computation : 1f_parse -f=1; CompareV2 -t=10; 3f_analyse -t=5 -maxdiff=10 -hdmaxdiff=1000
 
 ## Maintenance run
 
@@ -150,11 +170,11 @@ Just move your certified duplicates to a /video/duplicates folder. Then run any 
 
 ## Remove false positives
 
-Use case : same generic present in different videos.
-Copy the list of jpeg contained in /db/ana-not-saved into /db/unwanted for each set. The 3f_analyse will discard them.
+Use case : same generic images present in different videos.
+Copy the list of jpeg contained in /db/ana-not-saved into /db/unwanted for each set. The 3j_analyse will discard them.
 
 Use case : 2 video files not duplicate but some images are similar.
-Copy the nb_match*.txt from /db/ana-not-saved to /db/unwanted. The 3f_analyse will discard them.
+Copy the nb_match*.txt from /db/ana-not-saved to /db/unwanted. The 3j_analyse will discard them.
 
 ## Speed up 1f_parse
 
@@ -162,11 +182,11 @@ Run it with -p on multiple computers connected to a SAN. Use a less agressive fp
 
 ## Speed up CompareV2
 
-Limit accepted difference between images. -t=10 is correct, -t=8 is faster, -t=5 will miss duplicates.
+Limit accepted difference between images. -t=10 is correct, -t=8 is faster, -t=5 is toll less and will miss duplicates.
 
-## Speed up 3h_analyse
+## Speed up 3j_analyse
 
-First run will be long, so create a limited resultset for next ones. Put unwanted images in unwanted folder and then use -out option and -fake with a permissive -maxdiff equal to -t of CompareV2. The result will be an out file purged of unwanted images so you can empty unwanted folder to speed things.
+First run will be long, so create a limited resultset for next ones. Put unwanted images in unwanted folder and then use -out option and -fake with a permissive -maxdiff equal to -t of CompareV2. The result will be an out file purged of unwanted images so you can empty unwanted folder to speed things. See example 1 above.
 
 HD comparison is long but computed HDfingerprints are store in a cache. The -hdmaxdiff have no impact on this but -maxdiff have. So run a first HD computation with a small -maxdiff (e.g. 4) to find unwanted images and then limit subsequent searchs.
 
