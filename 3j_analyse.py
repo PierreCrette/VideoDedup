@@ -735,469 +735,469 @@ if len(sys.argv) > 1:
         log('Distance = ' + str(gmpy2.hamdist(k1, k2)))
 
     log('Done. Temp image file in ' + tmp)
+    sys.exit()
 
-else:
-    if len(sys.argv) < 3:
-        log('SYNTAX ERROR:')
-        helpprt()
-        exit()
-
-    foldervideo = os.path.normpath(sys.argv[1])
-    if foldervideo[-1] != "/": foldervideo = foldervideo + "/"
-    folderimgraw = os.path.normpath(sys.argv[2])
-    if folderimgraw[-1] != "/":
-        folderimg = folderimgraw + "/db/"
-        folderana = folderimgraw + "/ana-" + env + "-not-saved/"
-        foutputhd = folderimgraw + "/hddb_" + str(hdquality) + ".fp"
-    else:
-        folderimg = folderimgraw + "db/"
-        folderana = folderimgraw + "ana-" + env + "-not-saved/"
-        foutputhd = folderimgraw + "hddb_" + str(hdquality) + ".fp"
-    fresultset = os.path.normpath(sys.argv[3])
-    for i in sys.argv[3:]:
-        if i[:3] == '-v=': debug  = int(i[3:])
-        if i[:9] == '-threads=': threads  = int(i[9:])
-        if i[:3] == '-t=': threshold  = int(i[3:])
-        if i[:4] == '-tu=': thresholduw = int(i[4:])
-        if i[:9] == '-maxdiff=' : maxdiff = int(i[9:])
-        if i[:11] == '-hdmaxdiff=' : hdmaxdiff = int(i[11:])
-        if i[:5] == '-hdq=' : hdquality = int(i[5:])
-        if i[:5] == '-out=': foutput = i[5:]
-        if i[:7] == '-hdout=': foutputhd = i[7:]
-        if i[:5] == '-tmp=': tmp = i[5:]
-        if i[:9] == '-ctrlref=': ctrlref = not(i[9:] == 'False')
-        if i == '-fake': fake = True
-        if i == '-uwfp': contuwfp = False
-        if i == '-skiphd': skiphd = True
-        if i == '-nc': copyright = 12
-    if tmp[-1] != '/': tmp = tmp + '/'
-    f = open(tmp + 'test', 'w')
-    f.write('test')
-    f.close
-
+if len(sys.argv) < 3:
+    log('SYNTAX ERROR:')
     helpprt()
+    exit()
 
-    sshell = sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2] + ' ' + sys.argv[3] + ' -v=' + str(debug) + ' -threads=' + str(threads)
-    sshell = sshell + ' -t=' + str(threshold)  + ' -tu=' + str(thresholduw) + ' -maxdiff=' + str(maxdiff) + ' -hdmaxdiff=' + str(hdmaxdiff)
-    sshell = sshell + ' -hdq=' + str(hdquality) + ' -hdout=' + foutputhd +' -tmp=' + tmp + ' -ctrlref=' + str(ctrlref) + ' -out=' + foutput
-    if fake:
-      sshell = sshell + ' -fake'
-    log(txtgreen + sshell + txtnocolor, 1)
-    log('', 0)
-    log (txtgreen + 'Consider double if at least ' + str(threshold) + ' pair of images are similar in the set.' + txtnocolor, 0)
-    log('', 0)
+foldervideo = os.path.normpath(sys.argv[1])
+if foldervideo[-1] != "/": foldervideo = foldervideo + "/"
+folderimgraw = os.path.normpath(sys.argv[2])
+if folderimgraw[-1] != "/":
+    folderimg = folderimgraw + "/db/"
+    folderana = folderimgraw + "/ana-" + env + "-not-saved/"
+    foutputhd = folderimgraw + "/hddb_" + str(hdquality) + ".fp"
+else:
+    folderimg = folderimgraw + "db/"
+    folderana = folderimgraw + "ana-" + env + "-not-saved/"
+    foutputhd = folderimgraw + "hddb_" + str(hdquality) + ".fp"
+fresultset = os.path.normpath(sys.argv[3])
+for i in sys.argv[3:]:
+    if i[:3] == '-v=': debug  = int(i[3:])
+    if i[:9] == '-threads=': threads  = int(i[9:])
+    if i[:3] == '-t=': threshold  = int(i[3:])
+    if i[:4] == '-tu=': thresholduw = int(i[4:])
+    if i[:9] == '-maxdiff=' : maxdiff = int(i[9:])
+    if i[:11] == '-hdmaxdiff=' : hdmaxdiff = int(i[11:])
+    if i[:5] == '-hdq=' : hdquality = int(i[5:])
+    if i[:5] == '-out=': foutput = i[5:]
+    if i[:7] == '-hdout=': foutputhd = i[7:]
+    if i[:5] == '-tmp=': tmp = i[5:]
+    if i[:9] == '-ctrlref=': ctrlref = not(i[9:] == 'False')
+    if i == '-fake': fake = True
+    if i == '-uwfp': contuwfp = False
+    if i == '-skiphd': skiphd = True
+    if i == '-nc': copyright = 12
+if tmp[-1] != '/': tmp = tmp + '/'
+f = open(tmp + 'test', 'w')
+f.write('test')
+f.close
 
-    perf = time.perf_counter()
+helpprt()
 
-    log(duration(time.perf_counter() - perf) + ' - Create a ' + str(threads) + ' pool for multiprocessing.')
-    #pool = multiprocessing.Pool(threads, None, [], 1)
-    pool1 = multiprocessing.Pool(threads)
-    pool2 = multiprocessing.Pool(threads)
-    pool3 = multiprocessing.Pool(threads)
-    pool4 = multiprocessing.Pool(threads)
-    pool5 = multiprocessing.Pool(threads)
+sshell = sys.argv[0] + ' ' + sys.argv[1] + ' ' + sys.argv[2] + ' ' + sys.argv[3] + ' -v=' + str(debug) + ' -threads=' + str(threads)
+sshell = sshell + ' -t=' + str(threshold)  + ' -tu=' + str(thresholduw) + ' -maxdiff=' + str(maxdiff) + ' -hdmaxdiff=' + str(hdmaxdiff)
+sshell = sshell + ' -hdq=' + str(hdquality) + ' -hdout=' + foutputhd +' -tmp=' + tmp + ' -ctrlref=' + str(ctrlref) + ' -out=' + foutput
+if fake:
+  sshell = sshell + ' -fake'
+log(txtgreen + sshell + txtnocolor, 1)
+log('', 0)
+log (txtgreen + 'Consider double if at least ' + str(threshold) + ' pair of images are similar in the set.' + txtnocolor, 0)
+log('', 0)
 
-    loadunwanted(folderimg + 'unwanted/', 'load')
+perf = time.perf_counter()
 
-    if contuwfp:
-        log(duration(time.perf_counter() - perf) + ' - Load current folder of each source...',0)
-        LoadSources(foldervideo)
-        LoadImages(folderimg)
-        srclst = sorted(srclst, key=sortoccurence)
-        imglst = sorted(imglst, key=sortoccurence)
+log(duration(time.perf_counter() - perf) + ' - Create a ' + str(threads) + ' pool for multiprocessing.')
+#pool = multiprocessing.Pool(threads, None, [], 1)
+pool1 = multiprocessing.Pool(threads)
+pool2 = multiprocessing.Pool(threads)
+pool3 = multiprocessing.Pool(threads)
+pool4 = multiprocessing.Pool(threads)
+pool5 = multiprocessing.Pool(threads)
 
-        loadunwanted(folderimg + 'unwanted/', 'ctrl')
+loadunwanted(folderimg + 'unwanted/', 'load')
 
+if contuwfp:
+    log(duration(time.perf_counter() - perf) + ' - Load current folder of each source...',0)
+    LoadSources(foldervideo)
+    LoadImages(folderimg)
+    srclst = sorted(srclst, key=sortoccurence)
+    imglst = sorted(imglst, key=sortoccurence)
+
+    loadunwanted(folderimg + 'unwanted/', 'ctrl')
+
+    prev = ''
+    for i in range(len(srclst)):
+      if srclst[i][0] == prev:
+        log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced 2 times. Launch again 1_analyse.py.')
+      prev = srclst[i][0]
+
+    #Step 1: parse fresultset and create memory map
+    resultsetvideo = []
+    mpdata = []
+    mpdatalist = []
+    nbline = 0
+    nbheap = 0
+    nbstill = 0
+    nbdist =0
+    nbunwant = 0
+    nbunwantth = 0
+    nbuwpair = 0
+    nbsrcnok = 0
+    nbnotfound = 0
+
+    f = open(fresultset, 'r')
+    line1 = f.readline()[:-1]
+    while line1:
+      if (nbline % 1000000 == 0) or (nbline == 100000) or (nbline == 10000) or (nbline == 1000):
+          log(duration(time.perf_counter() - perf) + ' - Loading file. Done: {:_}'.format(nbline), 2)
+      nbline = nbline + 1
+      # Read 6 lines
+      line2 = f.readline()[:-1]
+      line3 = f.readline()[:-1]
+      line4 = f.readline()[:-1]
+      line5 = f.readline()[:-1]
+      line6 = f.readline()[:-1]
+      # Controls structure
+      if (line1[:5] != 'BEGIN') or (line1[7:18] != 'Similarity=') or (line6[:3] != 'END') or (line2[:5] != 'file=') or (line4[:5] != 'file=') or (line3[:4] != 'key=') or (line5[:4] != 'key='):
+        log(duration(time.perf_counter() - perf) + ' - ' + txterr + 'ERROR' + txtnocolor + ' in the structure of the file. Found:')
+        log(line1)
+        log(line2)
+        log(line3)
+        log(line4)
+        log(line5)
+        log(line6)
+        sys.exit(1)
+      # Apply filters
+      similarity = int(line1[18:])
+      if (similarity >= maxdiff): nbdist = nbdist + 1
+      else:
+        key1 = int(line3[4:])
+        key2 = int(line5[4:])
+        mpdatalist.append([line2, line4, key1, key2, similarity])
+        nbheap = nbheap + 1
+        if (nbheap == 10000):
+          mpdata.append([mpdatalist, srclst2, imglst, unwanted, nbline])
+          mpdatalist = []
+          nbheap = 0
+      line1 = f.readline()[:-1]
+    f.close()
+    mpdata.append([mpdatalist, srclst2, imglst, unwanted, nbline])
+
+    log(duration(time.perf_counter() - perf) + ' - {:_} records kept. Launching parrallel additional controls at images level.'.format(nbline - nbdist))
+    results = pool1.imap_unordered(mp1_ImagesControl, mpdata, 5)
+    pool1.close
+    pool1.join
+
+    for rr in results:
+      for r in rr[0]:
+        resultsetvideo.append(r)
+      nbstill = nbstill + rr[1]
+      nbsrcnok = nbsrcnok + rr[2]
+      nbunwant = nbunwant + rr[3]
+      nbunwantth = nbunwantth + rr[4]
+      nbnotfound = nbnotfound + rr[5]
+
+    worksize = len(resultsetvideo)
+    if debug > 1: print()
+    log(duration(time.perf_counter() - perf) + ' - STEP1 done. On {:_}'.format(nbline) + ' duplicates images, ' + txtgreen + \
+        '{:_}'.format(worksize) + ' ({:_}%)'.format(100 * worksize // nbline) + txtnocolor +  ' dupes found. {:_}'.format(nbstill) + \
+        ' stills rejected, {:_}'.format(nbunwant) + ' unwanted images,  {:_}'.format(nbunwantth) + \
+        ' images distant from a unwanted <= ' + str(thresholduw) + ',  {:_}'.format(nbsrcnok) + ' source deleted or renamed,  {:_}'.format(nbnotfound) + \
+        ' images not found and {:_}'.format(nbdist) + ' images with distance > ' + str(maxdiff), 1)
+#    log(duration(time.perf_counter() - perf) + ' - STEP1 done. On {:.{prec}f}'.format(nblines/6, prec=0) + ' duplicates images, ' + txtgreen + '{:_}'.format(worksize) + txtnocolor + \
+#        ' dupes found. {:_}'.format(nbstill) + ' stills rejected and {:_}'.format(nbunwant) + ' unwanted images and {:_}'.format(nbunwantth) + ' similar to uw images.', 1)
+
+    if foutput != '':
+      log(duration(time.perf_counter() - perf) + ' - Start writting output file to disk.', 1)
+      resultsetvideo = sorted(resultsetvideo, key=sortimages)
+      f = open(foutput, 'w')
+      prev = ['','']
+      nbdupes = 0
+      for r in resultsetvideo:
+          if prev == r[2]:
+            log('Out dupe removed : ' + prev[0] + '; ' + prev[1], 3)
+            nbdupes = nbdupes + 1
+          else:
+            prev = r[2]
+            f.write('BEGIN. Similarity=' + str(r[5]) + '\n')
+            f.write('file=' + r[2][0] + '\n')
+            f.write('key=' + str(r[4][0]) + '\n')
+            f.write('file=' + r[2][1] + '\n')
+            f.write('key=' + str(r[4][1]) + '\n')
+            f.write('END' + '\n')
+      f.close
+      log(duration(time.perf_counter() - perf) + ' - Output file written to disk : ' + foutput, 1)
+      log(duration(time.perf_counter() - perf) + ' -    Removed duplicates pairs of images : ' + str(nbdupes), 1)
+
+    if not(fake):
+      #Step 2: clean files in multiple duplicates
+      log('*********************************************************************', 1)
+      log('* STEP 2 : CONTROLS AT SOURCE LEVEL AND HD COMPARE TO NARROW FILTER *', 1)
+      log('*********************************************************************', 1)
+      if worksize > 100000:
+        log(txtgreen + sshell + txtnocolor, 1)
+
+      #Sort by 1st source then group and count same duplicate sets.
+      resultsetvideo = sorted(resultsetvideo, key=sortsources)
+
+      log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' images dupes.', 0)
+      log(duration(time.perf_counter() - perf) + ' - Grouping by pairs of sources and removing unwanted source')
+      rsv = []
+      prev = ['','']
+
+      for i in range(len(resultsetvideo)):
+        if prev == resultsetvideo[i]:
+          log('Do nothing, complete duplicate.', 4)
+        else:
+          if resultsetvideo[i][1] in uwpair:
+            nbuwpair = nbuwpair + 1
+          else:
+            if prev[1] != resultsetvideo[i][1]:
+              prev = resultsetvideo[i]
+              rsv.append(prev)
+            else:
+              rsv[len(rsv)-1][0] = rsv[len(rsv)-1][0] + 1
+              for j in range(len(resultsetvideo[i][2])):
+                  rsv[len(rsv)-1][2].append(resultsetvideo[i][2][j])
+          # Remove duplicate source images
+          tmprs = sorted(resultsetvideo[i][2])
+          resultsetvideo[i][2] = []
+          previ = ''
+          for j in range(len(tmprs)):
+              if (previ != tmprs[j]):
+                  previ = tmprs[j]
+                  resultsetvideo[i][2].append(previ)
+          tmprs = []
+
+      log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' sources dupes. {:_}'.format(nbuwpair) + ' unwanted pairs.', 0)
+      log(duration(time.perf_counter() - perf) + ' - Controls at video level: count images similarities per source pair and check multiple referencing.')
+
+      rsv = sorted(rsv, key=sortoccurence, reverse=True)
+
+      named= []
+      resultsetvideo = []
+      log('Check occurence >= ' + str(threshold), 3)
+      rejthr = 0
+      rejref = 0
+      rejdel = 0
+      rejimg = 0
+      mpdata = []
+      mpdatalist = []
+
+      #imglst = sorted(imglst, key=sortoccurence)
+
+      for i in range(len(rsv)):
+        mpdatalist.append(rsv[i])
+        if (i % 1000 == 0) and (i > 0):
+          mpdata.append([mpdatalist, named, srclst])
+          mpdatalist = []
+      if len(mpdatalist) > 0:
+        mpdata.append([mpdatalist, named, srclst])
+      results = pool2.imap_unordered(mp2_SourceControl, mpdata, 5)
+      pool2.close
+      pool2.join
+      for rr in results:
+        for r in rr[0]:
+          resultsetvideo.append(r)
+        rejthr = rejthr + rr[1]
+        rejref = rejref + rr[2]
+        rejdel = rejdel + rr[4]
+        rejimg = rejimg + rr[3]
+
+      log(duration(time.perf_counter() - perf) + ' - Controls restricted list from {:_}'.format(len(rsv)) + ' to ' + txtgreen + \
+        '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor + ' {:_}'.format(rejthr) + ' rejected due to less than {:_}'.format(threshold) + \
+        ' pair of duplicates, {:_}'.format(rejimg) + ' because less than {:_}'.format(threshold) + ' distinct images identified, {:_}'.format(rejref) + \
+        ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
+
+      if skiphd:
+        log(duration(time.perf_counter() - perf) + ' - Skip HD control.', 1)
+      else:
+      #Calculate HD distance to limit resultset
+        hdcache = []
+        hdkey = -1
+        if os.path.exists(foutputhd):
+          f = open(foutputhd, 'r')
+          for line in f:
+            if line[:6] == 'hdkey=':
+              hdkey = line[6:-1]
+            if line[:5] == 'file=':
+              if (len(line) > 22):
+                  hdcache.append([line[5:-1], int(hdkey)])
+          f.close
+          log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcache)) + ' elements.', 1)
+        else:
+          if foutputhd != '':
+            f = open(foutputhd, 'w')
+            f.close
+
+        # Complete HD fingerprint database
+        hdcacheNames = []
+        for c in hdcache:
+          hdcacheNames.append(c[0])
+        hdcacheNames = sorted(hdcacheNames)
+
+        log(duration(time.perf_counter() - perf) + ' - Find missing HD fingerprints.', 2)
+        mpdatalist = []
+        for rs in resultsetvideo:
+          for img in rs[2]:
+            mpdatalist.append(img)
+        mpdatalist = sorted(mpdatalist)
+        tmprs = []
         prev = ''
-        for i in range(len(srclst)):
-          if srclst[i][0] == prev:
-            log(duration(time.perf_counter() - perf) + ' - File ' + srclst[i][1] + srclst[i][0] + ' is referenced 2 times. Launch again 1_analyse.py.')
-          prev = srclst[i][0]
+        for r in mpdatalist:
+          if r != prev:
+            tmprs.append(r)
+          prev = r
+        log(duration(time.perf_counter() - perf) + ' - For {:_} images to compare in HD, '.format(len(mpdatalist)) + '{:_} uniques references to check for existing HD fingerprint or search current path.'.format(len(tmprs)), 1)
 
-        #Step 1: parse fresultset and create memory map
-        resultsetvideo = []
         mpdata = []
         mpdatalist = []
-        nbline = 0
-        nbheap = 0
-        nbstill = 0
-        nbdist =0
-        nbunwant = 0
-        nbunwantth = 0
-        nbuwpair = 0
-        nbsrcnok = 0
-        nbnotfound = 0
-
-        f = open(fresultset, 'r')
-        line1 = f.readline()[:-1]
-        while line1:
-          if (nbline % 1000000 == 0) or (nbline == 100000) or (nbline == 10000) or (nbline == 1000):
-              log(duration(time.perf_counter() - perf) + ' - Loading file. Done: {:_}'.format(nbline), 2)
-          nbline = nbline + 1
-          # Read 6 lines
-          line2 = f.readline()[:-1]
-          line3 = f.readline()[:-1]
-          line4 = f.readline()[:-1]
-          line5 = f.readline()[:-1]
-          line6 = f.readline()[:-1]
-          # Controls structure
-          if (line1[:5] != 'BEGIN') or (line1[7:18] != 'Similarity=') or (line6[:3] != 'END') or (line2[:5] != 'file=') or (line4[:5] != 'file=') or (line3[:4] != 'key=') or (line5[:4] != 'key='):
-            log(duration(time.perf_counter() - perf) + ' - ' + txterr + 'ERROR' + txtnocolor + ' in the structure of the file. Found:')
-            log(line1)
-            log(line2)
-            log(line3)
-            log(line4)
-            log(line5)
-            log(line6)
-            sys.exit(1)
-          # Apply filters
-          similarity = int(line1[18:])
-          if (similarity >= maxdiff): nbdist = nbdist + 1
-          else:
-            key1 = int(line3[4:])
-            key2 = int(line5[4:])
-            mpdatalist.append([line2, line4, key1, key2, similarity])
-            nbheap = nbheap + 1
-            if (nbheap == 10000):
-              mpdata.append([mpdatalist, srclst2, imglst, unwanted, nbline])
-              mpdatalist = []
-              nbheap = 0
-          line1 = f.readline()[:-1]
-        f.close()
-        mpdata.append([mpdatalist, srclst2, imglst, unwanted, nbline])
-
-        log(duration(time.perf_counter() - perf) + ' - {:_} records kept. Launching parrallel additional controls at images level.'.format(nbline - nbdist))
-        results = pool1.imap_unordered(mp1_ImagesControl, mpdata, 5)
-        pool1.close
-        pool1.join
-
+        cpt = 0
+        for img in tmprs:
+          mpdatalist.append(img)
+          if len(mpdatalist) == 200:
+            cpt = cpt + len(mpdatalist)
+            mpdata.append([mpdatalist, hdcacheNames, imglst])
+            mpdatalist = []
+        if len(mpdatalist) > 0:
+          cpt = cpt + len(mpdatalist)
+          mpdata.append([mpdatalist, hdcacheNames, imglst])
+        log(duration(time.perf_counter() - perf) + ' - Find missing HD fingerprints and search folder for {:_} images.'.format(cpt), 1)
+        results = pool3.imap_unordered(mp3_HD_ReadCache, mpdata, 5)
+        pool3.close
+        pool3.join
+        imagefilestoHDcache = []
         for rr in results:
-          for r in rr[0]:
-            resultsetvideo.append(r)
-          nbstill = nbstill + rr[1]
-          nbsrcnok = nbsrcnok + rr[2]
-          nbunwant = nbunwant + rr[3]
-          nbunwantth = nbunwantth + rr[4]
-          nbnotfound = nbnotfound + rr[5]
+          for r in rr:
+            imagefilestoHDcache.append(r)
 
-        worksize = len(resultsetvideo)
         if debug > 1: print()
-        log(duration(time.perf_counter() - perf) + ' - STEP1 done. On {:_}'.format(nbline) + ' duplicates images, ' + txtgreen + \
-            '{:_}'.format(worksize) + ' ({:_}%)'.format(100 * worksize // nbline) + txtnocolor +  ' dupes found. {:_}'.format(nbstill) + \
-            ' stills rejected, {:_}'.format(nbunwant) + ' unwanted images,  {:_}'.format(nbunwantth) + \
-            ' images distant from a unwanted <= ' + str(thresholduw) + ',  {:_}'.format(nbsrcnok) + ' source deleted or renamed,  {:_}'.format(nbnotfound) + \
-            ' images not found and {:_}'.format(nbdist) + ' images with distance > ' + str(maxdiff), 1)
-    #    log(duration(time.perf_counter() - perf) + ' - STEP1 done. On {:.{prec}f}'.format(nblines/6, prec=0) + ' duplicates images, ' + txtgreen + '{:_}'.format(worksize) + txtnocolor + \
-    #        ' dupes found. {:_}'.format(nbstill) + ' stills rejected and {:_}'.format(nbunwant) + ' unwanted images and {:_}'.format(nbunwantth) + ' similar to uw images.', 1)
-
-        if foutput != '':
-          log(duration(time.perf_counter() - perf) + ' - Start writting output file to disk.', 1)
-          resultsetvideo = sorted(resultsetvideo, key=sortimages)
-          f = open(foutput, 'w')
-          prev = ['','']
-          nbdupes = 0
-          for r in resultsetvideo:
-              if prev == r[2]:
-                log('Out dupe removed : ' + prev[0] + '; ' + prev[1], 3)
-                nbdupes = nbdupes + 1
-              else:
-                prev = r[2]
-                f.write('BEGIN. Similarity=' + str(r[5]) + '\n')
-                f.write('file=' + r[2][0] + '\n')
-                f.write('key=' + str(r[4][0]) + '\n')
-                f.write('file=' + r[2][1] + '\n')
-                f.write('key=' + str(r[4][1]) + '\n')
-                f.write('END' + '\n')
-          f.close
-          log(duration(time.perf_counter() - perf) + ' - Output file written to disk : ' + foutput, 1)
-          log(duration(time.perf_counter() - perf) + ' -    Removed duplicates pairs of images : ' + str(nbdupes), 1)
-
-        if not(fake):
-          #Step 2: clean files in multiple duplicates
-          log('*********************************************************************', 1)
-          log('* STEP 2 : CONTROLS AT SOURCE LEVEL AND HD COMPARE TO NARROW FILTER *', 1)
-          log('*********************************************************************', 1)
-          if worksize > 100000:
-            log(txtgreen + sshell + txtnocolor, 1)
-
-          #Sort by 1st source then group and count same duplicate sets.
-          resultsetvideo = sorted(resultsetvideo, key=sortsources)
-
-          log(duration(time.perf_counter() - perf) + ' - Sorted {:_}'.format(len(resultsetvideo)) + ' images dupes.', 0)
-          log(duration(time.perf_counter() - perf) + ' - Grouping by pairs of sources and removing unwanted source')
-          rsv = []
-          prev = ['','']
-
-          for i in range(len(resultsetvideo)):
-            if prev == resultsetvideo[i]:
-              log('Do nothing, complete duplicate.', 4)
+        log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(len(imagefilestoHDcache)) + txtnocolor + ' missing HD key to compute.', 1)
+        if len(imagefilestoHDcache) > 0:
+          chunk = 1000 * threads
+          while len(imagefilestoHDcache) > 0:
+            if len(imagefilestoHDcache) > chunk:
+              tmpimg = imagefilestoHDcache[:chunk]
+              imagefilestoHDcache = imagefilestoHDcache[chunk:]
             else:
-              if resultsetvideo[i][1] in uwpair:
-                nbuwpair = nbuwpair + 1
-              else:
-                if prev[1] != resultsetvideo[i][1]:
-                  prev = resultsetvideo[i]
-                  rsv.append(prev)
-                else:
-                  rsv[len(rsv)-1][0] = rsv[len(rsv)-1][0] + 1
-                  for j in range(len(resultsetvideo[i][2])):
-                      rsv[len(rsv)-1][2].append(resultsetvideo[i][2][j])
-              # Remove duplicate source images
-              tmprs = sorted(resultsetvideo[i][2])
-              resultsetvideo[i][2] = []
-              previ = ''
-              for j in range(len(tmprs)):
-                  if (previ != tmprs[j]):
-                      previ = tmprs[j]
-                      resultsetvideo[i][2].append(previ)
-              tmprs = []
-
-          log(duration(time.perf_counter() - perf) + ' - Grouped by source files from {:_}'.format(len(resultsetvideo)) + ' to {:_}'.format(len(rsv)) + ' sources dupes. {:_}'.format(nbuwpair) + ' unwanted pairs.', 0)
-          log(duration(time.perf_counter() - perf) + ' - Controls at video level: count images similarities per source pair and check multiple referencing.')
-
-          rsv = sorted(rsv, key=sortoccurence, reverse=True)
-
-          named= []
-          resultsetvideo = []
-          log('Check occurence >= ' + str(threshold), 3)
-          rejthr = 0
-          rejref = 0
-          rejdel = 0
-          rejimg = 0
-          mpdata = []
-          mpdatalist = []
-
-          #imglst = sorted(imglst, key=sortoccurence)
-
-          for i in range(len(rsv)):
-            mpdatalist.append(rsv[i])
-            if (i % 1000 == 0) and (i > 0):
-              mpdata.append([mpdatalist, named, srclst])
-              mpdatalist = []
-          if len(mpdatalist) > 0:
-            mpdata.append([mpdatalist, named, srclst])
-          results = pool2.imap_unordered(mp2_SourceControl, mpdata, 5)
-          pool2.close
-          pool2.join
-          for rr in results:
-            for r in rr[0]:
-              resultsetvideo.append(r)
-            rejthr = rejthr + rr[1]
-            rejref = rejref + rr[2]
-            rejdel = rejdel + rr[4]
-            rejimg = rejimg + rr[3]
-
-          log(duration(time.perf_counter() - perf) + ' - Controls restricted list from {:_}'.format(len(rsv)) + ' to ' + txtgreen + \
-            '{:_}'.format(len(resultsetvideo)) + ' dupes.' + txtnocolor + ' {:_}'.format(rejthr) + ' rejected due to less than {:_}'.format(threshold) + \
-            ' pair of duplicates, {:_}'.format(rejimg) + ' because less than {:_}'.format(threshold) + ' distinct images identified, {:_}'.format(rejref) + \
-            ' previously references sources, {:_}'.format(rejdel) + ' deleted sources.', 1)
-
-          if skiphd:
-            log(duration(time.perf_counter() - perf) + ' - Skip HD control.', 1)
-          else:
-          #Calculate HD distance to limit resultset
-            hdcache = []
-            hdkey = -1
-            if os.path.exists(foutputhd):
-              f = open(foutputhd, 'r')
-              for line in f:
-                if line[:6] == 'hdkey=':
-                  hdkey = line[6:-1]
-                if line[:5] == 'file=':
-                  if (len(line) > 22):
-                      hdcache.append([line[5:-1], int(hdkey)])
-              f.close
-              log(duration(time.perf_counter() - perf) + ' - HD cache loaded with ' + str(len(hdcache)) + ' elements.', 1)
-            else:
-              if foutputhd != '':
-                f = open(foutputhd, 'w')
-                f.close
-
-            # Complete HD fingerprint database
-            hdcacheNames = []
-            for c in hdcache:
-              hdcacheNames.append(c[0])
-            hdcacheNames = sorted(hdcacheNames)
-
-            log(duration(time.perf_counter() - perf) + ' - Find missing HD fingerprints.', 2)
-            mpdatalist = []
-            for rs in resultsetvideo:
-              for img in rs[2]:
-                mpdatalist.append(img)
-            mpdatalist = sorted(mpdatalist)
-            tmprs = []
-            prev = ''
-            for r in mpdatalist:
-              if r != prev:
-                tmprs.append(r)
-              prev = r
-            log(duration(time.perf_counter() - perf) + ' - For {:_} images to compare in HD, '.format(len(mpdatalist)) + '{:_} uniques references to check for existing HD fingerprint or search current path.'.format(len(tmprs)), 1)
-
-            mpdata = []
-            mpdatalist = []
+              tmpimg = imagefilestoHDcache
+              imagefilestoHDcache = []
+            results = pool4.imap_unordered(mp4_HD_WriteCache, tmpimg)
             cpt = 0
-            for img in tmprs:
-              mpdatalist.append(img)
-              if len(mpdatalist) == 200:
-                cpt = cpt + len(mpdatalist)
-                mpdata.append([mpdatalist, hdcacheNames, imglst])
-                mpdatalist = []
-            if len(mpdatalist) > 0:
-              cpt = cpt + len(mpdatalist)
-              mpdata.append([mpdatalist, hdcacheNames, imglst])
-            log(duration(time.perf_counter() - perf) + ' - Find missing HD fingerprints and search folder for {:_} images.'.format(cpt), 1)
-            results = pool3.imap_unordered(mp3_HD_ReadCache, mpdata, 5)
-            pool3.close
-            pool3.join
-            imagefilestoHDcache = []
+            f = open(foutputhd, 'a')
             for rr in results:
               for r in rr:
-                imagefilestoHDcache.append(r)
+                hdcache.append(r)
+                f.write('hdkey=' + str(r[1]) + '\n')
+                f.write('file=' + r[0] + '\n')
+                cpt = cpt + 1
 
-            if debug > 1: print()
-            log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(len(imagefilestoHDcache)) + txtnocolor + ' missing HD key to compute.', 1)
-            if len(imagefilestoHDcache) > 0:
-              chunk = 1000 * threads
-              while len(imagefilestoHDcache) > 0:
-                if len(imagefilestoHDcache) > chunk:
-                  tmpimg = imagefilestoHDcache[:chunk]
-                  imagefilestoHDcache = imagefilestoHDcache[chunk:]
-                else:
-                  tmpimg = imagefilestoHDcache
-                  imagefilestoHDcache = []
-                results = pool4.imap_unordered(mp4_HD_WriteCache, tmpimg)
-                cpt = 0
-                f = open(foutputhd, 'a')
-                for rr in results:
-                  for r in rr:
-                    hdcache.append(r)
-                    f.write('hdkey=' + str(r[1]) + '\n')
-                    f.write('file=' + r[0] + '\n')
-                    cpt = cpt + 1
+          log(duration(time.perf_counter() - perf) + ' - Computation done. Now writing cache to disk.', 2)
+          hdcache = sorted(hdcache, key=sortoccurence)
+          f = open(foutputhd + '~', 'w')
+          prev = []
+          for hdc in hdcache:
+            if hdc != prev:
+              f.write('hdkey=' + str(hdc[1]) + '\n')
+              f.write('file=' + hdc[0] + '\n')
+              prev = hdc
+          f.close
+          os.remove(foutputhd)
+          os.rename(foutputhd + '~',foutputhd)
+          log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(cpt) + txtnocolor + ' new HD key added to cache ' + foutputhd, 1)
 
-              log(duration(time.perf_counter() - perf) + ' - Computation done. Now writing cache to disk.', 2)
-              hdcache = sorted(hdcache, key=sortoccurence)
-              f = open(foutputhd + '~', 'w')
-              prev = []
-              for hdc in hdcache:
-                if hdc != prev:
-                  f.write('hdkey=' + str(hdc[1]) + '\n')
-                  f.write('file=' + hdc[0] + '\n')
-                  prev = hdc
-              f.close
-              os.remove(foutputhd)
-              os.rename(foutputhd + '~',foutputhd)
-              log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + str(cpt) + txtnocolor + ' new HD key added to cache ' + foutputhd, 1)
+        pool4.close
+        pool4.join
+        log(duration(time.perf_counter() - perf) + ' - HD distances to compute.', 1)
 
-            pool4.close
-            pool4.join
-            log(duration(time.perf_counter() - perf) + ' - HD distances to compute.', 1)
+        # HD comparison
+        #f = open(foutputhd, 'r')
+        mpdata = []
+        mpdatalist = []
 
-            # HD comparison
-            #f = open(foutputhd, 'r')
-            mpdata = []
+        for i in range(len(resultsetvideo)):
+          mpdatalist.append([i,resultsetvideo[i]])
+          if (i % 1000 == 0) and (i > 0):
+            mpdata.append([mpdatalist,hdcache])
             mpdatalist = []
+        if len(mpdatalist) > 0:
+          mpdata.append([mpdatalist,hdcache])
+        results = pool5.imap_unordered(mp5_HD_DistanceControl, mpdata, 5)
+        pool5.close
+        pool5.join
+        rsv = []
+        comment = []
+        for rr in results:
+          for r in rr:
+            rsv.append(resultsetvideo[r[0]])
+            comment.append(r[1])
 
-            for i in range(len(resultsetvideo)):
-              mpdatalist.append([i,resultsetvideo[i]])
-              if (i % 1000 == 0) and (i > 0):
-                mpdata.append([mpdatalist,hdcache])
-                mpdatalist = []
-            if len(mpdatalist) > 0:
-              mpdata.append([mpdatalist,hdcache])
-            results = pool5.imap_unordered(mp5_HD_DistanceControl, mpdata, 5)
-            pool5.close
-            pool5.join
-            rsv = []
-            comment = []
-            for rr in results:
-              for r in rr:
-                rsv.append(resultsetvideo[r[0]])
-                comment.append(r[1])
+        if debug > 1: print()
+        log(duration(time.perf_counter() - perf) + ' - Limit to max HD distance done. From {:_}'.format(len(resultsetvideo)) + txtgreen + \
+         ' to {:_}'.format(len(rsv)) + ' dupes.' + txtnocolor, 0)
+        resultsetvideo = rsv
 
-            if debug > 1: print()
-            log(duration(time.perf_counter() - perf) + ' - Limit to max HD distance done. From {:_}'.format(len(resultsetvideo)) + txtgreen + \
-             ' to {:_}'.format(len(rsv)) + ' dupes.' + txtnocolor, 0)
-            resultsetvideo = rsv
+      #Step 3: create Analyse folder and copy all files in it
+      log('*******************************************')
+      log('*    STEP 3 : COPY FILES FOR ANALYSIS     *')
+      log('*******************************************')
+      if fake:
+        log(txtgreen + 'Fake: Analyse folder not created.' + txtnocolor)
+        for i in range(len(resultsetvideo)):
+          log('resultsetvideo[' + str(i) + '] : occurences = ' + str(resultsetvideo[i][0]), 2)
+          log('Sources :', 2)
+          for j in range(len(resultsetvideo[i][1])): log(resultsetvideo[i][1][j], 2)
+          log('Images :', 4)
+          for j in range(len(resultsetvideo[i][2])): log(resultsetvideo[i][2][j], 4)
+      else:
+        log(txtgreen + sshell + txtnocolor, 1)
+        if not(os.path.exists(folderana)):
+          os.mkdir(folderana, mode=0o777)
+        for j in range(len(resultsetvideo)):
+          ok = True
+          fld = folderana + str(j) + '/'
+          x = resultsetvideo[j]
+          if x[0] >= threshold:
+            if os.path.exists(fld):
+              shutil.rmtree(fld)
+            os.mkdir(fld, mode=0o777)
 
-          #Step 3: create Analyse folder and copy all files in it
-          log('*******************************************')
-          log('*    STEP 3 : COPY FILES FOR ANALYSIS     *')
-          log('*******************************************')
-          if fake:
-            log(txtgreen + 'Fake: Analyse folder not created.' + txtnocolor)
-            for i in range(len(resultsetvideo)):
-              log('resultsetvideo[' + str(i) + '] : occurences = ' + str(resultsetvideo[i][0]), 2)
-              log('Sources :', 2)
-              for j in range(len(resultsetvideo[i][1])): log(resultsetvideo[i][1][j], 2)
-              log('Images :', 4)
-              for j in range(len(resultsetvideo[i][2])): log(resultsetvideo[i][2][j], 4)
-          else:
-            log(txtgreen + sshell + txtnocolor, 1)
-            if not(os.path.exists(folderana)):
-              os.mkdir(folderana, mode=0o777)
-            for j in range(len(resultsetvideo)):
-              ok = True
-              fld = folderana + str(j) + '/'
-              x = resultsetvideo[j]
-              if x[0] >= threshold:
-                if os.path.exists(fld):
-                  shutil.rmtree(fld)
-                os.mkdir(fld, mode=0o777)
+            #x[1] are Video source files
+            for d in enumerate(x[1]):
+              patd1 = ''
+              for srcelt in srclst:
+                if srcelt[0] == d[1]:
+                  patd1 = srcelt[1] + d[1]
 
-                #x[1] are Video source files
-                for d in enumerate(x[1]):
-                  patd1 = ''
-                  for srcelt in srclst:
-                    if srcelt[0] == d[1]:
-                      patd1 = srcelt[1] + d[1]
+              log('Copy ' + patd1 + ' ' + fld + SlashToSpace(patd1, len(foldervideo)))
+              if ok and os.path.exists(patd1):
+                shutil.copy2(patd1, fld + SlashToSpace(patd1, len(foldervideo)))
+              else:
+                ok = False
 
-                  log('Copy ' + patd1 + ' ' + fld + SlashToSpace(patd1, len(foldervideo)))
-                  if ok and os.path.exists(patd1):
-                    shutil.copy2(patd1, fld + SlashToSpace(patd1, len(foldervideo)))
-                  else:
-                    ok = False
-
-                #x[2] are images files
-                if ok:
-                  f = open(fld + '/nb_match_' + str(x[0]) + '.' + str(j) + '.' + pid + '.txt','w')
-                  f.write('To move in ' + folderimg + '/unwanted to remove this pair from future comparison :\n')
-                  for d in enumerate(x[1]):
-                    f.write('pair=' + d[1] + '\n')
-                  f.write('#\n')
-                  f.write('Similar images files :\n')
-                  prev = ''
-                  for d in enumerate(x[2]):
-                    # log('prev = ' + prev, 4)
-                    # log('d[1]    = ' + d[1], 4)
-                    if d[1] != prev:
-                      # log('d <> prev', 4)
-                      # f.write(d[1] + '\n')
-                      imgf = newimage(d[1]) + '/' + ShortName(d[1])
+            #x[2] are images files
+            if ok:
+              f = open(fld + '/nb_match_' + str(x[0]) + '.' + str(j) + '.' + pid + '.txt','w')
+              f.write('To move in ' + folderimg + '/unwanted to remove this pair from future comparison :\n')
+              for d in enumerate(x[1]):
+                f.write('pair=' + d[1] + '\n')
+              f.write('#\n')
+              f.write('Similar images files :\n')
+              prev = ''
+              for d in enumerate(x[2]):
+                # log('prev = ' + prev, 4)
+                # log('d[1]    = ' + d[1], 4)
+                if d[1] != prev:
+                  # log('d <> prev', 4)
+                  # f.write(d[1] + '\n')
+                  imgf = newimage(d[1]) + '/' + ShortName(d[1])
 #                      if os.path.exists(imgf):
 #                        shutil.copy2(imgf,fld + SlashToSpace(imgf, len(folderimg)))
 #                      else:
 #                        log(txterr + 'Not exist ' + txtnocolor + d[1] + txtgreen + ' -> ' + txtnocolor + imgf, 1)
-                    prev = d[1]
-                  for elt in comment[j]:
-                    im1 = newimage(elt[1], True)
-                    im2 = newimage(elt[2], True)
-                    f.write(str(elt[0]) + ' of distance -img="' + im1 + '" -img="' + im2 + '"\n')
-                    if os.path.exists(im1):
-                      shutil.copy2(im1,fld + SlashToSpace(im1, len(folderimg)))
-                    else:
-                      log(txterr + 'Not exist ' + txtnocolor + im1, 1)
-                    if os.path.exists(im2):
-                      shutil.copy2(im2,fld + SlashToSpace(im2, len(folderimg)))
-                    else:
-                      log(txterr + 'Not exist ' + txtnocolor + im2, 1)
-                  f.close
+                prev = d[1]
+              for elt in comment[j]:
+                im1 = newimage(elt[1], True)
+                im2 = newimage(elt[2], True)
+                f.write(str(elt[0]) + ' of distance -img="' + im1 + '" -img="' + im2 + '"\n')
+                if os.path.exists(im1):
+                  shutil.copy2(im1,fld + SlashToSpace(im1, len(folderimg)))
                 else:
-                  shutil.rmtree(fld)
+                  log(txterr + 'Not exist ' + txtnocolor + im1, 1)
+                if os.path.exists(im2):
+                  shutil.copy2(im2,fld + SlashToSpace(im2, len(folderimg)))
+                else:
+                  log(txterr + 'Not exist ' + txtnocolor + im2, 1)
+              f.close
+            else:
+              shutil.rmtree(fld)
 
 #    if HDerrflag:
 #      log(duration(time.perf_counter() - perf) + ' - ' + txterr + 'WARNING' + txtnocolor + ' Some HD computation failed due to system constraints, so the HD cache is not complete. Relaunch again to finish. Consider this result as correctt but partial.')
-    log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'Finished.' + txtnocolor, 1)
-    log('', 0)
-    log(txtgreen + sshell + txtnocolor, 1)
+log(duration(time.perf_counter() - perf) + ' - ' + txtgreen + 'Finished.' + txtnocolor, 1)
+log('', 0)
+log(txtgreen + sshell + txtnocolor, 1)
 flog.close
