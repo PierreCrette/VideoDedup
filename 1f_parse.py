@@ -533,7 +533,7 @@ perf = time.perf_counter()
 
 if len(sys.argv)<2:
     print('SYNTAX ERROR')
-    helpprt
+    helpprt()
     sys.exit()
 else:
     foldervideo = os.path.normpath(sys.argv[1])
