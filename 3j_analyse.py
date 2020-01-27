@@ -720,7 +720,8 @@ log('Video DeDup : find video duplicates')
 log('Copyright (C) 2020  Pierre Crette')
 log('')
 
-if (sys.argv[1][:5] == '-img='):
+if len(sys.argv) > 1:
+  if (sys.argv[1][:5] == '-img='):
     debug = 12
     q = 5
     file=sys.argv[1][5:]
