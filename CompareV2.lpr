@@ -25,10 +25,20 @@ v2.0 b003 : store done result in
   idxSource: array of TSource;
   and replace searchs by direct acces based on index position
 v2.0 b006 : store rs in memory instead of direct write on disk to improve performance when lot of result founds
+v2.0.1 : testing of v2.0 b006 + minor adjustments
+v2.0.2 : queue mechanism to avoid waiting for disk
+v2.0.3 : -glob option (not working). Queue improvement.
+
+Performance on img.2 dataset with 26307 images:
+- After reboot :             load images in 2h08
+- Cached :                   load images in 7mn
+- glob, after reboot :       load images in 7mn
+- glob, cached :             load images in
+
 }
 
 const
-  version: string = 'compare v2.0 b007.004';
+  version: string = 'compare v2.0.3.3 20200213';
 
 Type
   TKey = array[0..3] of Qword;
@@ -52,6 +62,11 @@ Type
     imcount: integer;
     data   : array[1..5000] of integer;
     end;
+  Tqueuelt = record
+    qleft    : integer;
+    qpack    : TPack;
+    qcomment : string;
+  end;
 
   TMyThread = class(TThread)
   private
@@ -70,8 +85,10 @@ Type
   end;
 
 var
-  Threads: array[1..64] of TMyThread;  // Modify here to increase multi-threading limit
-  Threadstatus: array[1..64] of integer; // and here. 0=free, 1= running, 2=writing
+  Threads: array[1..128] of TMyThread;  // Modify here to increase multi-threading limit
+  Threadstatus: array[1..128] of integer; // and here. 0=free, 1= running, 2=writing
+  queue: array[0..256] of Tqueuelt;
+  queuelen, queuemin: integer;
 
   idxDone: array of array of boolean;
   idxSource: array of TSource;
@@ -83,7 +100,7 @@ var
   p, param, pid, lbl: string;
   firstsource: pSource;
   debut, LastLoading, t: TDateTime;
-  clean, upgradedone, firstload: boolean;
+  clean, glob, upgradedone, firstload: boolean;
 
   //testskey1, testskey2: string;
   //testkkey1, testkkey2: TKey;
@@ -347,7 +364,7 @@ end;
 procedure InitIdx;
 var
   i, j: integer;
-  ps, prev: pSource;
+  ps: pSource;
   t: TDateTime;
 begin
   t := Now;
@@ -403,9 +420,6 @@ begin
     else if abs(m - n) < 2 then begin
       IndexSource := 999999999;
       log('SeekIdxSource: Not found in Index (n=' + inttostr(n) + ') "' + InFilename + '"', 3);
-      //log('filecount=' + inttostr(filecount) + ', min-max=' + inttostr(min) + '-' + inttostr(max), 2);
-      //if (n>0) then log('  Closest #' + inttostr(n-1) + ' "' + idxSource[n-1].filename +'"', 2);
-      //if (n<filecount) then log('  Closest #' + inttostr(n+1) + ' "' + idxSource[n+1].filename +'"', 2);
     end;
 
   until IndexSource > -1;
@@ -421,11 +435,72 @@ var
   pt, prev: pFingerprint;
   ptsource, ptprevsource: pSource;
   imagecount: integer;
+
+  procedure OneFP();
+  begin
+    if fileexists(fullname) then begin
+      assignfile(f, fullname);
+      reset(f);
+      new(ptsource);
+      ptsource^.midpath  := MidPath(fullname);
+      ptsource^.filename := EndName(fullname);
+      ptprevsource       := FindPrevSource(ptsource^.filename);
+      if ptprevsource = nil then begin
+        //element to add at the beginning of the list
+        ptsource^.next     := firstsource;
+        firstsource        := ptsource;
+      end else begin
+        //element to add not at the begin
+        ptsource^.next     := ptprevsource^.next;
+        ptprevsource^.next := ptsource;
+      end;
+
+      imagecount := 0;
+      prev := nil;
+      while not eof(f) do begin
+        readln(f, skey);
+        if leftstr(skey,4) <> 'key=' then begin
+           Log('Error : in ' + fullname + ' Look for key= and found ' + skey, 0);
+           halt;
+        end;
+        readln(f, simg);
+        if leftstr(simg,5) <> 'file=' then begin
+           Log('Error : in ' + fullname + ' Look for file= and found ' + simg, 0);
+           halt;
+        end;
+
+        inc(imagecount);
+        inc(imgcount);
+        new(pt);
+        pt^.skey   := rightstr(skey, length(skey)-4);
+        pt^.key    := keytobin(rightstr(skey, length(skey)-4));
+        pt^.img    := ImageName(simg, fold);
+        pt^.next   := nil;
+        if prev = nil then
+          ptsource^.firstimage := pt
+        else
+          prev^.next := pt;
+        prev       := pt;
+      end;
+      closefile(f);
+      if prev = nil then begin
+        log('ERROR no images in ' + fullname, 3);
+        if debug < 3 then log('ERROR no images in a folder. See log.', 0);
+        ptprevsource^.next := ptsource^.next;
+        dec(filecount);
+      end;
+      ptsource^.imgcount := imagecount;
+
+    end else begin
+      log('ERROR loading : ' + fullname, 0);
+      halt;
+    end;
+  end;
+
 begin
-  fold:=ExpandFileName(fold);
+  fold := ExpandFileName(fold);
   if fold[length(fold)]='/' then fold := leftstr(fold,length(fold)-1);
   if fold <> folderimg + 'unwanted' then begin
-    Log('Load fingerprints from ' + fold, 4);
     if (filecount = cptdisplay) then begin
       if cptdisplay > 0 then
         log('Loaded ' + inttostr(filecount) + ' images folders...', 1);
@@ -433,71 +508,29 @@ begin
     end;
     if FindFirst(fold + '/*', faAnyFile and faDirectory, result)=0 then begin
       repeat
-        if (result.Name <> '.') and (result.Name <> '..') then
-        begin
+        if (result.Name <> '.') and (result.Name <> '..') then begin
           If (result.Attr and faDirectory) = faDirectory then begin
             recursescan(fold + '/' + result.Name, filecount);
           end else begin
+            fullname := fold + '/' + result.Name;
+            if clean and (RightStr(result.Name, 4) = '.run') then begin
+              log('DeleteFile ' + fullname, 2);
+              DeleteFile(fullname);
+            end;
+            if clean and (RightStr(result.Name, 5) = '.done') then begin
+              log('DeleteFile ' + fullname, 2);
+              DeleteFile(fullname);
+            end;
             if upcase(RightStr(result.Name, 3)) = '.FP' then begin
-              fullname := fold + '/' + result.Name;
-              inc(filecount);
-              if fileexists(fullname) then begin
-                assignfile(f, fullname);
-                reset(f);
-                new(ptsource);
-                ptsource^.midpath  := MidPath(fullname);
-                ptsource^.filename := EndName(fullname);
-                ptprevsource       := FindPrevSource(ptsource^.filename);
-                if ptprevsource = nil then begin
-                  //element to add at the beginning of the list
-                  ptsource^.next     := firstsource;
-                  firstsource        := ptsource;
-                end else begin
-                  //element to add not at the begin
-                  ptsource^.next     := ptprevsource^.next;
-                  ptprevsource^.next := ptsource;
-                end;
-
-                imagecount := 0;
-                prev := nil;
-                while not eof(f) do begin
-                  readln(f, skey);
-                  if leftstr(skey,4) <> 'key=' then begin
-                     Log('Error : in ' + fullname + ' Look for key= and found ' + skey, 0);
-                     halt;
-                  end;
-                  readln(f, simg);
-                  if leftstr(simg,5) <> 'file=' then begin
-                     Log('Error : in ' + fullname + ' Look for file= and found ' + simg, 0);
-                     halt;
-                  end;
-
-                  inc(imagecount);
-                  inc(imgcount);
-                  new(pt);
-                  pt^.skey   := rightstr(skey, length(skey)-4);
-                  pt^.key    := keytobin(rightstr(skey, length(skey)-4));
-                  pt^.img    := ImageName(simg, fold);
-                  pt^.next   := nil;
-                  if prev = nil then
-                    ptsource^.firstimage := pt
-                  else
-                    prev^.next := pt;
-                  prev       := pt;
-                end;
-                closefile(f);
-                if prev = nil then begin
-                  log('ERROR no images in ' + fullname, 3);
-                  if debug < 3 then log('ERROR no images in a folder. See log.', 0);
-                  ptprevsource^.next := ptsource^.next;
-                  dec(filecount);
-                end;
-                ptsource^.imgcount := imagecount;
-
-                //log('f closed', 3, false);
-              end else begin
-                log('ERROR loading : ' + fullname, 0);
-                halt;
+              if (LeftStr(result.Name, 4) = 'glob') and glob then begin
+                filecount := strtoint(copy(result.Name, 5, length(result.Name) - 7));
+                log('Loading ' + fullname + ' with ' + inttostr(filecount) + ' image folders', 1);
+                OneFP;
+              end;
+              if (LeftStr(result.Name, 4) <> 'glob') and not glob then begin
+                inc(filecount);
+                fullname := fold + '/' + result.Name;
+                OneFP;
               end;
             end;
           end;
@@ -514,7 +547,7 @@ begin
 end;
 
 function lock(lockfile, pid, kind: string): boolean;
-//kind=fast set lock without control, ctrl=after a fast perform the control, full=fast+ctrl
+//kind=fast: set lock without control, =ctrl:after a fast perform the control, =full: fast+ctrl
 var
   todo: boolean;
   f: Textfile;
@@ -528,14 +561,6 @@ begin
     halt;
   end;
   todo := Not(FileExists(lockfile + '.run'));
-  if todo and FileExists(lockfile + '.done') then
-    if CompareDateTime(FileDateToDateTime(FileAge(lockfile + '.done')), debut) < 0 then begin
-      log(lockfile + '.done exists and it is old. Lock should be set.', 2);
-    end else begin
-      log(lockfile + '.done exists and it is recent. Lock not to be set.', 2);
-      todo := False;
-    end;
-
   if todo or (kind='ctrl') then begin
     if (kind='ctrl') then begin
       todo := True;
@@ -574,7 +599,7 @@ procedure LoadDone(position: integer; clean: boolean);
 var
   f: Textfile;
   result: TRawByteSearchRec;
-  line,lstr,rstr, dbf: string;
+  line,lstr,rstr, dbf, s: string;
   i, j: integer;
   nb, delim, notfound: integer;
   newfile: boolean;
@@ -597,8 +622,14 @@ begin
           lstr := leftstr(line, delim - 2);
           rstr := rightstr(line, length(line) - delim - 1);
 
-          i := SeekIdxSource(lstr);
-          j := SeekIdxSource(rstr);
+          if (length(lstr) > 0) and (length(rstr) > 0) then begin
+            // DEBUG: test useless except if bug in .db generation
+            i := SeekIdxSource(lstr);
+            j := SeekIdxSource(rstr);
+          end else begin
+            i := 999999999;
+            j := 999999999;
+          end;
 
           if (i <> 999999999) and (j <> 999999999) then begin
             inc(nb);
@@ -657,10 +688,11 @@ begin
 
   LastLoading := t;
   if (nb > 0) or (position mod 100 = 0) then i:=1 else i:=2;
-  if notfound > 0 then
-    log(inttostr(position) + ' / ' + inttostr(filecount) + ' found ' + inttostr(nb) + ' new pairs of sources in compdone*.db in ' + DurationToStr(t, Now, 1) + '. Must be reload for each source to get other computers work. ' + inttostr(notfound) + ' NOT FOUND ', i)
-  else
-    log(inttostr(position) + ' / ' + inttostr(filecount) + ' Found ' + inttostr(nb) + ' new pairs of sources in compdone*.db in ' + DurationToStr(t, Now, 1) + '. Must be reload for each source to get other computers work.', i);
+  s := inttostr(position) + ' / ' + inttostr(filecount) + ' found ' + inttostr(nb) + ' new pairs of sources in compdone*.db in ';
+  s := s + DurationToStr(t, Now, 1) + '. Must be reload for each source to get other computers work. Queuesize = ';
+  s := s + inttostr(queuelen) + ' (min ' + inttostr(queuemin) + '). ';
+  if notfound > 0 then s := s + inttostr(notfound) + ' NOT FOUND ';
+  log(s, 1);
   firstload := false;
 end;
 
@@ -692,7 +724,7 @@ begin
   log(locscript2 + 'Begin Thread #' + inttostr(FAthreadnb) + ' ' + FAcomment + ' with count = ' + inttostr(FARight.count) + ', imcount = ' + inttostr(FARight.imcount)
   + ', for ' + inttostr(idxSource[FALeft].imgcount) + ' left images.', 2);
 
-  //open & close file cannot be outside the loop because killing the program will let results not written to disk
+  //open & close file cannot be outside the loop because killing the program would let results not written to disk
   txtrs := '';
   for cpt := 1 to FARight.count do begin
     pti    := idxSource[FAleft].firstimage;
@@ -719,29 +751,28 @@ begin
   log(locscript2 + '--- write resultset to disk', 4);
   assignfile(frs, locscript + '.rs');
   append(frs);
-  //log(txtrs, 1);
   write(frs,txtrs);
   close(frs);
 
-  CreateFile(folderimg + lbl + '.' + pid + inttostr(FAthreadnb) + '.db');
-  assignfile(f, folderimg + lbl + '.' + pid + inttostr(FAthreadnb) + '.db');
+  CreateFile(folderimg + lbl + '.' + pid + '.' + inttostr(FAthreadnb) + '.' + inttostr(FAleft + 1) + '.db');
+  assignfile(f, folderimg + lbl + '.' + pid + '.' + inttostr(FAthreadnb) + '.' + inttostr(FAleft + 1) + '.db');
   append(f);
   for cpt := 1 to FARight.count do begin
-    if idxSource[FAleft].filename < idxSource[FAright.data[cpt]].filename then
-      line := idxSource[FAleft].filename + ' ; ' + idxSource[FAright.data[cpt]].filename
-    else
-      line := idxSource[FAright.data[cpt]].filename + ' ; ' + idxSource[FAleft].filename;
-    writeln(f, line);
+    if (length(idxSource[FAleft].filename) > 1) and (length(idxSource[FAright.data[cpt]].filename) > 1) then begin
+      if idxSource[FAleft].filename < idxSource[FAright.data[cpt]].filename then
+        line := idxSource[FAleft].filename + ' ; ' + idxSource[FAright.data[cpt]].filename
+      else
+        line := idxSource[FAright.data[cpt]].filename + ' ; ' + idxSource[FAleft].filename;
+      writeln(f, line);
+    end;
   end;
   close(f);
-  //DeleteFile(dbf + '.run');
 
   endleft := Now;
   durms := duration(beginleft, endleft);
   log(locscript2 + FAcomment + ' in ' + DurationToStr(beginleft, endleft, 1) + ', '
     + unites(FARight.count) + ' sources for ' + unites(FARight.imcount * idxSource[FAleft].imgcount) + ' comp @ '
     + unites(1000 * FARight.imcount * idxSource[FAleft].imgcount / durms) + ' c/s', 1);
-  //+ unites(FARight.imcount) + ' images, '
   Threadstatus[FAthreadnb] := 0;
   FAFinished := True;
 end;
@@ -751,9 +782,9 @@ var
   sleft, sright: integer;
   spack: TPack;
   i, nbpack: integer;
-  lockfile, prevlockfile, lockctrl: string;
-  ThreadLaunched : Boolean;
-  t1: TDateTime;
+  lockfile, prevlockfile, lockctrl, durload: string;
+  ThreadLaunched, ThreadQueued : Boolean;
+  t1, t2: TDateTime;
 
   procedure ThreadWait;
   var
@@ -764,31 +795,70 @@ var
       nbactive := 0;
       for i:=1 to nbthreads do
         if Threadstatus[i] > 0 then
-          inc(nbactive);
+          inc(nbactive)
+        else
+          if queuelen > 0 then begin
+            Threadstatus[i] := 1;
+            Threads[i] := TMyThread.Create(True);
+            Threads[i].FreeOnTerminate := True;
+            Threads[i].Athreadnb       := i;
+            if queuelen < queuemin then queuemin := queuelen;
+            if queuemin = 0 then queuemin := 2 * nbthreads;
+            dec(queuelen);
+            inc(nbactive);
+            Threads[i].ALeft    := queue[queuelen].qleft;
+            Threads[i].ARight   := queue[queuelen].qpack;
+            Threads[i].Acomment := queue[queuelen].qcomment;
+            Threads[i].Start;
+          end;
     until nbactive=0;
   end;
 
   procedure ThreadExec(comment: string);
   var
     i: integer;
+    qelt: Tqueuelt;
   begin
     ThreadLaunched := False;
+    ThreadQueued   := False;
+    qelt.qleft     := sleft;
+    qelt.qpack     := spack;
+    qelt.qcomment  := comment;
     repeat
       for i:=1 to nbthreads do begin
         if not(ThreadLaunched) and (Threadstatus[i] = 0) then begin
           Threadstatus[i] := 1;
-          Threads[i]:=TMyThread.Create(True);
+          Threads[i] := TMyThread.Create(True);
           Threads[i].FreeOnTerminate := True;
-          Threads[i].ALeft           := sleft;
-          Threads[i].ARight          := spack;
           Threads[i].Athreadnb       := i;
-          Threads[i].Acomment        := comment;
+          if queuelen > 0 then begin
+            if queuelen < queuemin then queuemin := queuelen;
+            //if queuemin = 0 then queuemin := 2 * nbthreads;
+            dec(queuelen);
+            Threads[i].ALeft    := queue[queuelen].qleft;
+            Threads[i].ARight   := queue[queuelen].qpack;
+            Threads[i].Acomment := queue[queuelen].qcomment;
+          end else begin
+            Threads[i].ALeft    := qelt.qleft;
+            Threads[i].ARight   := qelt.qpack;
+            Threads[i].Acomment := qelt.qcomment;
+            ThreadLaunched := True;
+          end;
           Threads[i].Start;
-          ThreadLaunched := True;
         end;
       end;
-      sleep(500);
-    until ThreadLaunched;
+      if not(ThreadLaunched) then begin
+        if queuelen < (2 * nbthreads) then begin
+          queue[queuelen] := qelt;
+          ThreadQueued    := True;
+          inc(queuelen);
+        end;
+      end;
+      if not(ThreadLaunched or ThreadQueued) then begin
+        log('Queue full. Waiting.', 2);
+        sleep(2000);
+      end;
+    until ThreadLaunched or ThreadQueued;
   end;
 
 begin
@@ -797,9 +867,11 @@ begin
     halt;
   end;
   for i := 1 to nbthreads do Threadstatus[i] := 0;
-  prevlockfile := '';
+  prevlockfile   := '';
+  queuelen  := 0;
+  queuemin  := 2 * nbthreads;
 
-  for sleft :=0 to filecount-1 do begin
+  for sleft := 0 to filecount-1 do begin
     t1 := Now;
     lockfile := folderimg + idxSource[sleft].midpath + idxSource[sleft].filename + '.compare.' + param;
     if lock(lockfile, pid, 'fast') then begin
@@ -807,18 +879,16 @@ begin
       nbpack := 0;
       spack.count   := 0;
       spack.imcount := 0;
+      t2 := Now;
       loaddone(sleft + 1, False);
-      //t3 := Now;
-
+      durload := DurationToStr(t2, Now, 1);
       for sright := 0 to filecount-1 do begin
         // Loop all right not only when sright>sleft. Then double check in idxDone
         if not(idxDone[sleft][sright]) and not(idxDone[sright][sleft]) and (sleft<>sright) then begin
           if lockctrl = 'not tested' then
             if lock(lockfile, pid, 'ctrl') then lockctrl := 'ok' else lockctrl := 'exit';
           if lockctrl = 'ok' then begin
-            //if nbpack = 1 then
-            //  log('Start comparing ' + inttostr(sleft+1) + ' / ' + inttostr(filecount), 1);
-            log('START COMP ' + inttostr(sleft+1) + ' / ' + inttostr(filecount) + ', ' + inttostr(sleft) + ' vs ' + inttostr(sright) + ' : ' + idxSource[sleft].filename + ' ; ' + idxSource[sright].filename, 3);
+            //log('START COMP ' + inttostr(sleft+1) + ' / ' + inttostr(filecount) + ', ' + inttostr(sleft) + ' vs ' + inttostr(sright) + ' : ' + idxSource[sleft].filename + ' ; ' + idxSource[sright].filename, 2);
             inc(spack.count);
             spack.imcount := spack.imcount + idxSource[sright].imgcount;
             spack.data[spack.count] := sright;
@@ -829,11 +899,8 @@ begin
               spack.imcount := 0;
             end;
           end;
-        //end else begin
-        //  log('SKIP (idxDone) ' + inttostr(sleft+1) + ' / ' + inttostr(filecount) + ', ' + inttostr(sleft) + ' vs ' + inttostr(sright) + ' : ' + idxSource[sleft].filename + ' ; ' + idxSource[sright].filename, 4);
         end;
       end;
-      //log('  ALL right source in ' + DurationToStr(t3, Now, 1), 3);
       if (spack.count > 0) and (lockctrl = 'ok') then begin
         inc(nbpack);
         ThreadExec('Source ' + inttostr(sleft+1) + '/' + inttostr(filecount) + ', last pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
@@ -841,17 +908,14 @@ begin
 
       if (lockctrl = 'ok') and FileExists(prevlockfile + '.run') then begin
         try
-          log('Finished. Renaming ' + prevlockfile + '.run to .done.', 2);
-          if FileExists(prevlockfile + '.done') then begin
-            DeleteFile(prevlockfile + '.done');
-            sleep(100);
-          end;
-          RenameFile(prevlockfile + '.run', prevlockfile + '.done');
+          log('Finished. Removing ' + prevlockfile + '.run', 3);
+          DeleteFile(prevlockfile + '.run');
         except
-          log('Cannot rename ' + prevlockfile + '.run to *.done', 1);
+          log('Cannot remove ' + prevlockfile + '.run', 1);
         end;
       end;
       prevlockfile := lockfile;
+      log('Duration to prepare source #' + inttostr(sleft) + ' is ' + DurationToStr(t1, Now, 1) + ', including ' + durload + ' for loading updated .db (+ wait if queue is full)', 2);
     end else begin
       log('Lock reserved by another process', 3);
     end;
@@ -861,75 +925,12 @@ begin
   ThreadWait;
   if (lockctrl = 'ok') and FileExists(prevlockfile + '.run') then begin
     try
-      log('Finished. Renaming ' + prevlockfile + '.run to .done.', 2);
-      if FileExists(prevlockfile + '.done') then begin
-        DeleteFile(prevlockfile + '.done');
-        sleep(100);
-      end;
-      RenameFile(prevlockfile + '.run', prevlockfile + '.done');
+      log('Finished. Removing ' + prevlockfile + '.run', 2);
+      DeleteFile(prevlockfile + '.run');
     except
-      log('Cannot rename ' + prevlockfile + '.run to *.done', 1);
+      log('Cannot remove ' + prevlockfile + '.run', 1);
     end;
   end;
-end;
-
-procedure DoneToDB;
-// Use to upgrade previous version with .done file in each image folder
-// to new version with compdone.db at root image folder.
-var
-  pts, ptsright: pSource;
-  sleft, sright: TSource;
-  donewitholdcode: boolean;
-  lockfile: string;
-  nbsl: integer;
-  f: Textfile;
-  dbf, line: string;
-
-begin
-  log('Begin update done to DB of ' + inttostr(filecount) + ' source files.', 1);
-  nbsl := 0;
-  dbf := folderimg + lbl + '.compdone.db';
-  try
-    CreateFile(dbf);
-    assignfile(f, dbf);
-    append(f);
-  except
-    log('ERROR create file ' + dbf + ', try another name.', 0);
-    dbf := folderimg + lbl + '.compdone1.db';
-    CreateFile(dbf);
-    sleep(1000);
-    assignfile(f, dbf);
-    append(f);
-  end;
-
-  pts := firstsource;
-  repeat
-    sleft := pts^;
-    inc(nbsl);
-    log('Start ' + inttostr(nbsl) + ' / ' + inttostr(filecount), 3);
-    lockfile := folderimg + sleft.midpath + sleft.filename + '/compare.' + param;
-    //lockfile := folderimg + sleft.filename + '/compare.' + param;
-    donewitholdcode := FileExists(lockfile + '.done');
-    if donewitholdcode then begin
-      log('FileExists ' + lockfile + '.done', 2);
-      log(sleft.filename + ' done with old code. Start loop to update DB.', 2);
-
-      ptsright := firstsource;
-      repeat
-        sright := ptsright^;
-        if sleft.filename < sright.filename then begin
-          line := sleft.filename + ' ; ' + sright.filename;
-          writeln(f, line);
-        end;
-        ptsright := sright.next;
-      until (ptsright = nil);
-
-    end;
-    pts := sleft.next;
-  until (pts = nil);
-
-  close(f);
-  log('Update finished', 0);
 end;
 
 procedure PrtHelp(copyright: integer);
@@ -960,23 +961,19 @@ begin
   log('-lbl=label   Label to identify runs with different parameters. Use the same on all sessions/computers to share workload. No special characters since its use for file naming.', copyright);
   log('-t=n         Threshold for similarity comparison. Default 10. Performance impact.', copyright);
   log('-threads=n   Number of threads to use. Make tests to find better option for your computer. Performance impact.', copyright);
-  log('-upgradedone From v1 to v2, from *.done to *.db', copyright);
   log('-clean       Read all DB files, remove references to old files, remove duplicates, store all in 1 file.', copyright);
-  //log('-mask=n      To limit the comparison to some images files for each source file. 1/n images are used. Performance impact.', copyright);
-  //log('-masksize=n  Read n images per source then skip (mask-1)*n images', copyright);
-  //log('-maskmethod= cycle: read n images per source then skip (mask-1)*masksize images, random: if random read masksize images else skip maxsize images.', copyright);
+  log('-glob        Read db/glob.fp instead of parsing all folders for fingerprint.fp. Faster but user must ensure glob.fp updates.', copyright);
   log('-log=file    Log file', copyright);
   log('', copyright);
   log('Display sample:', copyright);
-  log('[  3] Source 3 / 462 done. 1518 M comparison in 2''54". Thread perf = 8710 K comp/sec. 1860 images @ 10.68 i/s', copyright);
-  log('ETA this computer 21:33''55"', copyright);
-  log('I used -s=maskfptest and -threads=3.', copyright);
-  log('[  3] is the log of thread #3. Source #3 required 1518M key pairs comparison. The performance of 1 thread is about 8710K comparison per second.', copyright);
-  log('ETA considering 3 threads, ie 3 * 8710K comp/sec will be 21 about hours.', copyright);
-  log('Estimations are not accurate due to variances (data in cache, other process somehow limiting disk, ram or cpu...)', copyright);
-  log('For distributed computing you have to adjust ETA. e.g. computer #1 say 20h, #2 say 30h and #3 say 40h, then ETA=1/(1/20+1/30+1/40)', copyright);
+  log('2020/02/11 21:59 08 (13:24)   read line 10000 K from mask2.20200211.08344941147.db', copyright);
+  log('2020/02/11 21:59 20 (13:24) [  3                          ] Source 16198/26302, pack 2 (85.24%)  in 3 56, 5000 sources for 2290 M comp @ 9696 K c/s', copyright);
+  log('2020/02/11 21:59 25 (13:24) 16235 / 26302 found 13574718 new pairs of sources in compdone*.db in 1 09. Must be reload for each source to get other computers work. Queuesize = 33 (min 5).', copyright);
+  log('[  3] is the log of thread #3. Source 16198 is compared to 5000 other in pack 2, ie 2290M images compared. Global progress is 85%', copyright);
+  log('When Queue size hit 0 then read disk is too long.', copyright);
   log('', copyright);
   log('************************************************************************************', 0);
+
 end;
 
 procedure ReadParams;
@@ -998,8 +995,7 @@ begin
   upgradedone:= false;
   clean      := false;
   firstload  := true;
-  //testskey1  := '';
-  //testskey2  := '';
+  glob       := false;
 
   folderimg := ParamStr(1);
   if RightStr(folderimg,1) <> '/' then folderimg := folderimg + '/';
@@ -1012,14 +1008,10 @@ begin
     if LeftStr(p,5)='-lbl='                 then lbl := RightStr(p,length(p)-5);
     if LeftStr(p,3)='-t='                   then threshold := StrToInt(RightStr(p,length(p)-3));
     if LeftStr(p,3)='-nc'                   then copyright := 12;
-    //if LeftStr(p,6)='-mask='                then mask := StrToInt(RightStr(p,length(p)-6));
-    //if LeftStr(p,10)='-masksize='           then masksize := StrToInt(RightStr(p,length(p)-10));
-    //if LeftStr(p,12)='-maskmethod='         then maskmethod := RightStr(p,length(p)-12);
     if LeftStr(p,12)='-upgradedone'         then upgradedone := true;
     if LeftStr(p,6)='-clean'                then clean := true;
+    if LeftStr(p,5)='-glob'                 then glob := true;
     if LeftStr(p,9)='-threads='             then nbthreads := StrToInt(RightStr(p,length(p)-9));;
-    //if LeftStr(p,4)='-k1='                  then testskey1 := RightStr(p,length(p)-4);
-    //if LeftStr(p,4)='-k2='                  then testskey2 := RightStr(p,length(p)-4);
   end;
 
   if flogname <> '' then begin
@@ -1037,6 +1029,10 @@ begin
     log('ERROR: parameter -lbl is mandatory to trace work done.', 0);
     exit;
   end;
+  if nbthreads > high(Threads) then begin
+    log('ERROR : Number of threads limited to ' + inttostr(high(Threads)) + '. You can modify this limit in LoopSources procedure.', 0);
+    halt;
+  end;
 
   if script = '' then begin
     i :=1;
@@ -1051,16 +1047,10 @@ begin
 
   log('debug=' + IntToStr(debug), 1);
   log('threshold=' + IntToStr(threshold), 1);
-  //log('copyright=' + IntToStr(copyright), 1);
-  //log('mask=' + IntToStr(mask), 1);
-  //log('maskmethod=' + maskmethod, 1);
-  //log('masksize=' + IntToStr(masksize), 1);
   log('script=' + script, 1);
   log('lbl=' + lbl, 1);
   log('threads=' + IntToStr(nbthreads), 1);
   log('log=' + flogname, 1);
-  //log('testskey1=' + testskey1, 1, false);
-  //log('testskey2=' + testskey2, 1, false);
   if upgradedone then begin
     log('', 1);
     log('UPGRADEDONE mode', 1)
@@ -1069,18 +1059,6 @@ begin
     log('CLEAN mode', 1);
   end;
   log('', 0);
-
-  //if testskey1 <> '' then begin
-  //  testkkey1 := keytobin(testskey1);
-  //  testkkey2 := keytobin(testskey2);
-  //  writeln('xor : ' + inttobin(testkkey1[3] xor testkkey2[3]) + ' ' + inttobin(testkkey1[2] xor testkkey2[2]) + ' ' + inttobin(testkkey1[1] xor testkkey2[1]) + ' ' + inttobin(testkkey1[0] xor testkkey2[0]));
-  //  writeln('distanceham = ' + inttostr(distanceham(testkkey1, testkkey2)));
-  //  halt;
-  //end;
-  //if testskey2 <> '' then begin
-  //  TestTimeStamp;
-  //  halt;
-  //end;
 end;
 
 begin
@@ -1091,11 +1069,6 @@ begin
 
   ReadParams;
 
-  if upgradedone then begin
-    log('Upgrade *.done sources to DB pairs.', 1);
-    log('DO NOT EXECUTE IT WHEN OTHER INSTANCES ARE RUNNING', 1);
-  end;
-
   filecount := 0;
   imgcount  := 0;
   firstsource := nil;
@@ -1103,12 +1076,10 @@ begin
 
   // Read all *.fp and store their content in memory : sources and image/key pairs
   RecurseScan(folderimg, filecount);
-  log('RecurseScan done in ' + DurationToStr(t, Now, 1), 1);
+  log('RecurseScan done in ' + DurationToStr(t, Now, 1) + ' and found ' + inttostr(imgcount) + ' pairs.', 1);
   InitIdx;
 
-  if upgradedone then
-    donetodb
-  else if clean then
+  if clean then
     LoadDone(0, True)
   else begin
     log(inttostr(filecount) + ' sources, ' + unites(imgcount) + ' images and ' + unites(round(imgcount * imgcount / 2)) + ' comparison to perform', 1);
