@@ -38,7 +38,7 @@ Performance on img.2 dataset with 26307 images:
 }
 
 const
-  version: string = 'compare v2.0.3.3 20200213';
+  version: string = 'compare v2.0.3.4 20200301';
 
 Type
   TKey = array[0..3] of Qword;
@@ -54,13 +54,13 @@ Type
     midpath    : string;
     filename   : string;
     firstimage : pFingerprint;
-    imgcount   : integer;
+    imgcount   : int64;
     next       : pSource;
     end;
   TPack = record
     count  : integer;
     imcount: integer;
-    data   : array[1..5000] of integer;
+    data   : array[1..10000] of integer;
     end;
   Tqueuelt = record
     qleft    : integer;
@@ -88,7 +88,7 @@ var
   Threads: array[1..128] of TMyThread;  // Modify here to increase multi-threading limit
   Threadstatus: array[1..128] of integer; // and here. 0=free, 1= running, 2=writing
   queue: array[0..256] of Tqueuelt;
-  queuelen, queuemin: integer;
+  queuelen, queuemaxlen, queuemin, queuemax: integer;
 
   idxDone: array of array of boolean;
   idxSource: array of TSource;
@@ -96,7 +96,7 @@ var
   folderimg, flogname: string;
   debug, threshold, copyright, mask, masksize, cptdisplay : integer;
   script, maskmethod: string;
-  filecount, imgcount, nbthreads: integer;
+  filecount, imgcount, nbthreads, errimg: integer;
   p, param, pid, lbl: string;
   firstsource: pSource;
   debut, LastLoading, t: TDateTime;
@@ -374,9 +374,11 @@ begin
   ps   := firstsource;
   while ps <> nil do begin
     if (ps^.next <> nil) and (ps^.filename = ps^.next^.filename) then begin
-      log('InitIdx: ERROR 2 files with same name. One is discarded. Relaunch 1f_Parse.py -clean to solve.' + ps^.filename + ' and ' + ps^.next^.filename, 0);
+      log('InitIdx: ERROR 2 files with same name. One is discarded. Relaunch 1f_Parse.py -clean to solve. ' + ps^.filename + ' and ', 0);
+      log(ps^.next^.filename, 0);
       ps^.next := ps^.next^.next;
       dec(filecount);
+      inc(errimg);
     end;
     ps := ps^.next
   end;
@@ -802,8 +804,9 @@ var
             Threads[i] := TMyThread.Create(True);
             Threads[i].FreeOnTerminate := True;
             Threads[i].Athreadnb       := i;
-            if queuelen < queuemin then queuemin := queuelen;
-            if queuemin = 0 then queuemin := 2 * nbthreads;
+            if queuelen > queuemax then queuemax := queuelen;
+            if (queuelen < queuemin) and (queuemax = queuemaxlen) then queuemin := queuelen;
+            //if queuemin = 0 then queuemin := queuemaxlen;
             dec(queuelen);
             inc(nbactive);
             Threads[i].ALeft    := queue[queuelen].qleft;
@@ -832,6 +835,7 @@ var
           Threads[i].FreeOnTerminate := True;
           Threads[i].Athreadnb       := i;
           if queuelen > 0 then begin
+            if queuelen > queuemax then queuemax := queuelen;
             if queuelen < queuemin then queuemin := queuelen;
             //if queuemin = 0 then queuemin := 2 * nbthreads;
             dec(queuelen);
@@ -848,7 +852,7 @@ var
         end;
       end;
       if not(ThreadLaunched) then begin
-        if queuelen < (2 * nbthreads) then begin
+        if queuelen < queuemaxlen then begin
           queue[queuelen] := qelt;
           ThreadQueued    := True;
           inc(queuelen);
@@ -868,8 +872,10 @@ begin
   end;
   for i := 1 to nbthreads do Threadstatus[i] := 0;
   prevlockfile   := '';
-  queuelen  := 0;
-  queuemin  := 2 * nbthreads;
+  queuelen     := 0;
+  queuemaxlen  := 2 * nbthreads;
+  queuemin     := queuemaxlen;
+  queuemax     := 0;
 
   for sleft := 0 to filecount-1 do begin
     t1 := Now;
@@ -892,7 +898,7 @@ begin
             inc(spack.count);
             spack.imcount := spack.imcount + idxSource[sright].imgcount;
             spack.data[spack.count] := sright;
-            if (spack.imcount * idxSource[sleft].imgcount > 5000000000) or (spack.count = high(spack.data)) then begin
+            if (spack.imcount * idxSource[sleft].imgcount > 10000000000) or (spack.count = high(spack.data)) then begin
               inc(nbpack);
               ThreadExec('Source ' + inttostr(sleft+1) + '/' + inttostr(filecount) + ', pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
               spack.count   := 0;
@@ -996,6 +1002,7 @@ begin
   clean      := false;
   firstload  := true;
   glob       := false;
+  errimg     := 0;
 
   folderimg := ParamStr(1);
   if RightStr(folderimg,1) <> '/' then folderimg := folderimg + '/';
@@ -1078,13 +1085,16 @@ begin
   RecurseScan(folderimg, filecount);
   log('RecurseScan done in ' + DurationToStr(t, Now, 1) + ' and found ' + inttostr(imgcount) + ' pairs.', 1);
   InitIdx;
-
-  if clean then
-    LoadDone(0, True)
-  else begin
-    log(inttostr(filecount) + ' sources, ' + unites(imgcount) + ' images and ' + unites(round(imgcount * imgcount / 2)) + ' comparison to perform', 1);
-    LoopSources;
+  if errimg>0 then begin
+    log('Inconsistence in sources. Relaunch 1parse.py -clean', 1);
+  end else begin
+    if clean then
+      LoadDone(0, True)
+    else begin
+      log(inttostr(filecount) + ' sources, ' + unites(imgcount) + ' images and ' + unites(round(imgcount * imgcount / 2)) + ' comparison to perform', 1);
+      LoopSources;
+    end;
+    log('FINISHED.', 1);
   end;
-  log('FINISHED.', 1);
 end.
 
