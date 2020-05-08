@@ -28,6 +28,7 @@ v2.0 b006 : store rs in memory instead of direct write on disk to improve perfor
 v2.0.1 : testing of v2.0 b006 + minor adjustments
 v2.0.2 : queue mechanism to avoid waiting for disk
 v2.0.3 : -glob option (not working). Queue improvement.
+v2.0.4 : log in different files the status after loading all and before computing
 
 Performance on img.2 dataset with 26307 images:
 - After reboot :             load images in 2h08
@@ -38,7 +39,7 @@ Performance on img.2 dataset with 26307 images:
 }
 
 const
-  version: string = 'compare v2.0.3.4 20200301';
+  version: string = 'compare v2.0.4.2 20200508';
 
 Type
   TKey = array[0..3] of Qword;
@@ -96,8 +97,8 @@ var
   folderimg, flogname: string;
   debug, threshold, copyright, mask, masksize, cptdisplay : integer;
   script, maskmethod: string;
-  filecount, imgcount, nbthreads, errimg: integer;
-  p, param, pid, lbl: string;
+  filecount, imgcount, nbthreads, errimg, nbcrossing: integer;
+  p, param, pid, lbl, fdbexclude: string;
   firstsource: pSource;
   debut, LastLoading, t: TDateTime;
   clean, glob, upgradedone, firstload: boolean;
@@ -221,23 +222,26 @@ begin
     + rightstr('0'+inttostr(st.Hour),2) + rightstr('0'+inttostr(st.minute),2) + rightstr('0'+inttostr(st.Second),2) + inttostr(st.MilliSecond);
 end;
 
-procedure Log(s: string; verbose:integer); //inthread: boolean
+procedure Log(s: string; verbose: integer; fname: string=''); //inthread: boolean
 var
   flog: TextFile;
-  output: string;
+  fnameloc, output: string;
 begin
-  output := TimeStamp(0) + s;
-  if flogname <> '' then begin
-    if FileExists(flogname) then begin
-      assignfile(flog, flogname);
-      append(flog);
-      writeln(flog, output);
-      close(flog);
-    end else begin
-      assignfile(flog, flogname);
-      rewrite(flog);
-      writeln(flog, output);
-      close(flog);
+  if verbose-debug < 5 then begin
+    output := TimeStamp(0) + s;
+    if fname = '' then fnameloc := flogname else fnameloc := fname;
+    if fnameloc <> '' then begin
+      if FileExists(fnameloc) then begin
+        assignfile(flog, fnameloc);
+        append(flog);
+        writeln(flog, output);
+        close(flog);
+      end else begin
+        assignfile(flog, fnameloc);
+        rewrite(flog);
+        writeln(flog, output);
+        close(flog);
+      end;
     end;
   end;
   if verbose <= debug then writeln(output);
@@ -389,7 +393,7 @@ begin
     if ps <> nil then begin
       idxSource[i] := ps^;
 
-      log('InitIdx[' + inttostr(i) + '] = ' + idxSource[i].filename, 3);
+      log('InitIdx[' + inttostr(i) + '] = ' + idxSource[i].filename, 2, 'InitIdx.txt');
 
       for j:=0 to filecount-1 do
         idxDone[i][j] := false;
@@ -399,6 +403,16 @@ begin
     end;
   end;
   log('InitIdx done in ' + DurationToStr(t, Now, 1), 1);
+end;
+
+procedure grabstats;
+var
+   i,j: integer;
+begin
+  nbcrossing := 0;
+  for i:=0 to filecount-2 do
+    for j:=i+1 to filecount-1 do
+      if idxDone[i][j] then inc(nbcrossing);
 end;
 
 function SeekIdxSource(InFilename: string): integer;
@@ -601,8 +615,8 @@ procedure LoadDone(position: integer; clean: boolean);
 var
   f: Textfile;
   result: TRawByteSearchRec;
-  line,lstr,rstr, dbf, s: string;
-  i, j: integer;
+  line,lstr,rstr, s: string;
+  i, j, nbfiles: integer;
   nb, delim, notfound: integer;
   newfile: boolean;
   t: TDateTime;
@@ -611,13 +625,15 @@ begin
   if firstload then log('Firstload of previously done comparison...', 1);
   nb := 0;
   notfound := 0;
+  nbfiles := 0;
   if FindFirst(folderimg + lbl + '*.db', faAnyFile and faDirectory, result)=0 then begin
     repeat
       //log('Found : ' + result.Name, 2);
       newfile := (CompareDateTime(FileDateToDateTime(FileAge(folderimg + result.Name)), LastLoading) > 0);
-      if (result.Name <> '.') and (result.Name <> '..') and ((result.Attr and faDirectory) <> faDirectory) and (newfile or firstload) then begin
+      if (result.Name <> '.') and (result.Name <> '..') and (result.Name <> fdbexclude) and ((result.Attr and faDirectory) <> faDirectory) and (newfile or firstload) then begin
         assignfile(f,folderimg + result.Name);
         reset(f);
+        inc(nbfiles);
         while not(eof(f)) do begin
           readln(f, line);
           delim := pos(';',line);
@@ -640,9 +656,9 @@ begin
           end else begin
             inc(notfound);
             if i=999999999 then
-              log('-- Not found but in ' + result.Name + ' : ' + lstr, 2)
+              log('-- Not found but in ' + result.Name + ' : ' + lstr, 6)
             else
-              log('-- Not found but in ' + result.Name + ' : ' + rstr, 2)
+              log('-- Not found but in ' + result.Name + ' : ' + rstr, 6)
           end;
 
           if ((nb + notfound) mod 10000000 = 0) then
@@ -653,24 +669,30 @@ begin
       end;
     until FindNext(result)<>0;
     FindClose(result);
+    if firstload then begin
+      log('************************************************************************************************************************', 1);
+      log(unites(nb) + ' source pairs done / ' + unites(filecount * filecount) + ' possible pairs = ' + formatfloat('0.00',100 * nb / filecount / filecount) + '% RAW', 1);
+      log('************************************************************************************************************************', 1);
+      nbcrossing := nb;
+    end else log(unites(nb) + ' source pairs done / ' + unites(filecount * filecount) + ' possible pairs = ' + formatfloat('0.00',100 * nb / filecount / filecount) + '% RAW', 2);
   end;
 
-  if clean then begin
+  if clean or (nbfiles > 1000) then begin
     // Write new DB without inconsistencies
-    dbf := lbl + TimeStamp(1) + '.db';
-    CreateFile(folderimg + dbf);
-    assignfile(f, folderimg + dbf);
+    fdbexclude := lbl + TimeStamp(1) + '.db';
+    CreateFile(folderimg + fdbexclude);
+    assignfile(f, folderimg + fdbexclude);
     append(f);
     for i:=0 to filecount-2 do
       for j:=i+1 to filecount-1 do
         if idxDone[i][j] or idxDone[j][i] then
           writeln(f, idxSource[i].filename + ' ; ' + idxSource[j].filename);
     close(f);
-    log('Created ' + dbf, 1);
+    log('Created ' + fdbexclude, 1);
     // Delete old DB files
     if FindFirst(folderimg + lbl + '*.db', faAnyFile and faDirectory, result)=0 then begin
       repeat
-        if (result.Name <> '.') and (result.Name <> '..') and ((result.Attr and faDirectory) <> faDirectory) and (result.Name <> dbf) then
+        if (result.Name <> '.') and (result.Name <> '..') and ((result.Attr and faDirectory) <> faDirectory) and (result.Name <> fdbexclude) then
           try
             log('Removing ' + result.Name, 2);
             if not DeleteFile(folderimg + result.Name) then begin
@@ -689,10 +711,11 @@ begin
   end;
 
   LastLoading := t;
-  if (nb > 0) or (position mod 100 = 0) then i:=1 else i:=2;
-  s := inttostr(position) + ' / ' + inttostr(filecount) + ' found ' + inttostr(nb) + ' new pairs of sources in compdone*.db in ';
-  s := s + DurationToStr(t, Now, 1) + '. Must be reload for each source to get other computers work. Queuesize = ';
-  s := s + inttostr(queuelen) + ' (min ' + inttostr(queuemin) + '). ';
+  //if (nb > 0) or (position mod 100 = 0) then i:=1 else i:=2;
+  //Must be reload for each source to get other computers work.
+  s := inttostr(position) + ' / ' + inttostr(filecount) + ' sources, ' + unites(nbcrossing) + ' / ' + unites(filecount * filecount * 0.5) + ' source pairs, ';
+  s := s + inttostr(nb) + ' pairs read in *.db in ' + DurationToStr(t, Now, 1);
+  s := s + '. Queuesize = ' + inttostr(queuelen) + ' (min ' + inttostr(queuemin) + '). ';
   if notfound > 0 then s := s + inttostr(notfound) + ' NOT FOUND ';
   log(s, 1);
   firstload := false;
@@ -859,7 +882,8 @@ var
         end;
       end;
       if not(ThreadLaunched or ThreadQueued) then begin
-        log('Queue full. Waiting.', 2);
+        log('Queue full. Waiting.', 6);
+        grabstats;
         sleep(2000);
       end;
     until ThreadLaunched or ThreadQueued;
@@ -886,7 +910,7 @@ begin
       spack.count   := 0;
       spack.imcount := 0;
       t2 := Now;
-      loaddone(sleft + 1, False);
+      loaddone(sleft, False);
       durload := DurationToStr(t2, Now, 1);
       for sright := 0 to filecount-1 do begin
         // Loop all right not only when sright>sleft. Then double check in idxDone
@@ -894,13 +918,13 @@ begin
           if lockctrl = 'not tested' then
             if lock(lockfile, pid, 'ctrl') then lockctrl := 'ok' else lockctrl := 'exit';
           if lockctrl = 'ok' then begin
-            //log('START COMP ' + inttostr(sleft+1) + ' / ' + inttostr(filecount) + ', ' + inttostr(sleft) + ' vs ' + inttostr(sright) + ' : ' + idxSource[sleft].filename + ' ; ' + idxSource[sright].filename, 2);
+            log('START COMP ' + inttostr(sleft) + ' / ' + inttostr(filecount) + ', ' + inttostr(sleft) + ' vs ' + inttostr(sright) + ' : ' + idxSource[sleft].filename + ' ; ' + idxSource[sright].filename, 4);
             inc(spack.count);
             spack.imcount := spack.imcount + idxSource[sright].imgcount;
             spack.data[spack.count] := sright;
             if (spack.imcount * idxSource[sleft].imgcount > 10000000000) or (spack.count = high(spack.data)) then begin
               inc(nbpack);
-              ThreadExec('Source ' + inttostr(sleft+1) + '/' + inttostr(filecount) + ', pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
+              ThreadExec('Source ' + inttostr(sleft) + '/' + inttostr(filecount) + ', pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
               spack.count   := 0;
               spack.imcount := 0;
             end;
@@ -909,7 +933,7 @@ begin
       end;
       if (spack.count > 0) and (lockctrl = 'ok') then begin
         inc(nbpack);
-        ThreadExec('Source ' + inttostr(sleft+1) + '/' + inttostr(filecount) + ', last pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
+        ThreadExec('Source ' + inttostr(sleft) + '/' + inttostr(filecount) + ', last pack ' + inttostr(nbpack) + ' (' + formatfloat('0.00',100 * (1 - sqr(filecount-sleft) / sqr(filecount))) + '%) ');
       end;
 
       if (lockctrl = 'ok') and FileExists(prevlockfile + '.run') then begin
@@ -947,6 +971,7 @@ begin
   log('', 1);
   log('Video DeDup - module compare : find video duplicates', 0);
   log('Copyright (C) 2018, 2019  Pierre Crette', 0);
+  log('Version ' + version, 0);
   log('', 0);
   log('This program is free software: you can redistribute it and/or modify', copyright);
   log('it under the terms of the GNU General Public License as published by', copyright);
@@ -1003,6 +1028,7 @@ begin
   firstload  := true;
   glob       := false;
   errimg     := 0;
+  fdbexclude := '';
 
   folderimg := ParamStr(1);
   if RightStr(folderimg,1) <> '/' then folderimg := folderimg + '/';
